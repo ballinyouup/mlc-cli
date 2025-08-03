@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+func buildTVM() {
+	// TODO
+}
+
 func installTVM(userOS string, cliEnv string) {
 	prompt := promptui.Select{
 		Label: "Install tvm:",
@@ -143,7 +147,6 @@ func buildMLC(buildEnv string) {
 	}
 
 	nCores := runtime.NumCPU() // Get the number of CPU cores
-	//fmt.Printf("Building MLC with %d parallel jobs...\n", nCores)
 	buildCmd := exec.Command("conda", "run", "-n", buildEnv, "cmake", "--build", ".", "--parallel", fmt.Sprintf("%d", nCores))
 	buildCmd.Dir = "mlc-llm/build"
 	osToCmdOutput(buildCmd)
