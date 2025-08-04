@@ -2,6 +2,7 @@
   <dictionary name="project">
     <words>
       <w>huggingface</w>
+      <w>vulkaninfo</w>
     </words>
   </dictionary>
 </component>

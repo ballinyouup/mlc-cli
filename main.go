@@ -13,8 +13,8 @@ var verbose bool
 func osToCmdOutput(cmd *exec.Cmd) {
 	if verbose {
 		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
-	cmd.Stderr = os.Stderr
 }
 
 func cliError(msg string, err error) {
@@ -38,27 +38,21 @@ func main() {
 		cliError("Error getting selection: ", err)
 	}
 	if selection == "Build" {
-		userOS := getOS()
-		envNames := promptEnvNames()
-		buildEnv := envNames[0]
-		cliEnv := envNames[1]
-
-		clearEnvironments(buildEnv, cliEnv)
-		createEnvironments(buildEnv, cliEnv)
-
-		if userOS == "MacOS" {
-			installTVM(userOS, cliEnv)
-			promptMLCRepo()
-			createDirectories()
-			generateConfig(buildEnv)
-			buildMLC(buildEnv)
-			installMLC(cliEnv)
-		}
+		platform := CreatePlatform()
+		platform.ClearEnvironments()
+		platform.CreateEnvironments()
+		platform.InstallTVM()
+		platform.PromptMLCRepo()
+		platform.CreateDirectories()
+		platform.GenerateConfig()
+		platform.BuildMLC()
+		platform.InstallMLC()
 	} else if selection == "Run" {
-		envNames := promptEnvNames()
-		cliEnv := envNames[1]
-		createDirectories()
-		runMLCModel(cliEnv)
+		//envNames := PromptEnvNames()
+		//cliEnv := envNames[1]
+		platform := CreatePlatform()
+		platform.CreateDirectories()
+		platform.RunMLCModel()
 	}
 	println("MLC-LLM setup complete!")
 }

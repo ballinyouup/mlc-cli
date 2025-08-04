@@ -2,29 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/argparse" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/googletest" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/stb" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tokenizers-cpp" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tokenizers-cpp/msgpack" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tokenizers-cpp/sentencepiece" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/OpenCL-Headers" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/cnpy" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/cutlass" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/cutlass_fpA_intB_gemm" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/cutlass_fpA_intB_gemm/cutlass" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/dlpack" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/dmlc-core" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/libbacktrace" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/libflash_attn" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/libflash_attn/cutlass" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/rang" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/3rdparty/zlib" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/tvm/ffi/3rdparty/dlpack" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/xgrammar" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/3rdparty/xgrammar/3rdparty/dlpack" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/mlc-llm/models/Qwen3-1.7B-q4f16_1-MLC" vcs="Git" />
   </component>
 </project>
