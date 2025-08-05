@@ -3,18 +3,17 @@ package main
 import (
 	"fmt"
 	"github.com/manifoldco/promptui"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
 type MacOSPlatform struct {
 	BasePlatform
 }
-
-//func (m *MacOSPlatform) CheckDependencies() {
-//
-//}
 
 func (mac *MacOSPlatform) InstallTVM() {
 	prompt := promptui.Select{
@@ -27,12 +26,15 @@ func (mac *MacOSPlatform) InstallTVM() {
 	}
 
 	if installMethod == "Pre-built" {
+		loading := createLoader("Installing Pre-built TVM...")
 		cmd := exec.Command("conda", "run", "-n", mac.CliEnv, "pip", "install", "--pre", "-U", "-f", "https://mlc.ai/wheels", "mlc-ai-nightly-cpu")
 		osToCmdOutput(cmd)
 		err := cmd.Run()
 		if err != nil {
 			cliError("Error installing TVM: ", err)
 		}
+		stopLoader(loading)
+		println(Success + "Installed TVM")
 	} else {
 		// TODO: Build & Install TVM from source
 	}
@@ -58,6 +60,7 @@ func (mac *MacOSPlatform) GenerateConfig() {
 		Items: []string{"CUDA", "ROCM", "VULKAN", "METAL", "OPENCL", "None"},
 	}
 	_, gpuRuntime, err := runtimePrompt.Run()
+	loading := createLoader("Generating Config...")
 	if err != nil {
 		cliError("Error getting GPU runtime: ", err)
 	}
@@ -94,9 +97,12 @@ func (mac *MacOSPlatform) GenerateConfig() {
 	if err != nil {
 		cliError("Error generating config: ", err)
 	}
+	stopLoader(loading)
+	println(Success + "Generated Config")
 }
 
 func (mac *MacOSPlatform) BuildMLC() {
+	loading := createLoader("Building MLC...")
 	cmakeCmd := exec.Command("conda", "run", "-n", mac.BuildEnv, "cmake", "..")
 	cmakeCmd.Dir = "mlc-llm/build"
 	osToCmdOutput(cmakeCmd)
@@ -113,8 +119,71 @@ func (mac *MacOSPlatform) BuildMLC() {
 	if err != nil {
 		cliError("Error building MLC: ", err)
 	}
+	stopLoader(loading)
+	println(Success + "Built MLC")
 }
 
-func (mac *MacOSPlatform) buildTVM() {
+func (mac *MacOSPlatform) BuildTVM() {
 	// TODO
+}
+
+func (mac *MacOSPlatform) BuildAndroid() {
+	loading := createLoader("Building Android...")
+	// Check Dependencies
+	installRustString := "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+	rustcCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "rustc")
+	if err := rustcCmd.Run(); err != nil {
+		cliError("rustc is not installed.\n"+installRustString, err)
+	}
+	cargoCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "cargo")
+	if err := cargoCmd.Run(); err != nil {
+		cliError("cargo is not installed.\n"+installRustString, err)
+	}
+	rustupCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "rustup")
+	if err := rustupCmd.Run(); err != nil {
+		cliError("rustup is not installed.\n"+installRustString, err)
+	}
+
+	// Get Paths
+	wd, _ := os.Getwd()
+	ndkRoot := filepath.Join(os.Getenv("HOME"), "Library/Android/sdk/ndk")
+	entries, _ := os.ReadDir(ndkRoot)
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	androidNDK := filepath.Join(ndkRoot, entries[len(entries)-1].Name())
+
+	buildCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "mlc_llm", "package")
+	buildCmd.Dir = "mlc-llm/android/MLCChat"
+	buildCmd.Env = append(os.Environ(),
+		"MLC_LLM_SOURCE_DIR="+filepath.Join(wd, "mlc-llm"),
+		"TVM_SOURCE_DIR="+filepath.Join(wd, "mlc-llm/3rdparty/tvm"),
+		"ANDROID_NDK="+androidNDK,
+		"TVM_NDK_CC="+filepath.Join(
+			androidNDK,
+			"toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang",
+		),
+		"JAVA_HOME=/Applications/Android Studio.app/Contents/jbr/Contents/Home",
+	)
+
+	osToCmdOutput(buildCmd)
+	if err := buildCmd.Run(); err != nil {
+		cliError("Error building MLC: ", err)
+	}
+	stopLoader(loading)
+	println(Success + "Built Android")
+	println("Next steps:")
+	println("Open folder ./android/MLCChat as an Android Studio Project")
+	println("Connect your Android device to your machine. In the menu bar of Android Studio, click “Build → Make Project”.")
+	println("Once the build is finished, click “Run → Run ‘app’” and you will see the app launched on your phone.")
+}
+
+func (mac *MacOSPlatform) GetName() string {
+	return mac.Name
+}
+
+func (mac *MacOSPlatform) GetBuildEnv() string {
+	return mac.BuildEnv
+}
+
+func (mac *MacOSPlatform) GetCliEnv() string {
+	return mac.CliEnv
 }

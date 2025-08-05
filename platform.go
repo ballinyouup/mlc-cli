@@ -11,6 +11,7 @@ import (
 
 type Platform interface {
 	InstallTVM()
+	BuildTVM()
 	GenerateConfig()
 	BuildMLC()
 	InstallMLC()
@@ -19,6 +20,10 @@ type Platform interface {
 	CreateEnvironments()
 	ClearEnvironments()
 	CreateDirectories()
+	BuildAndroid()
+	GetName() string
+	GetBuildEnv() string
+	GetCliEnv() string
 	// CheckDependencies() error // Check if all dependencies are installed
 }
 type BasePlatform struct {
@@ -86,16 +91,20 @@ func (platform *BasePlatform) PromptMLCRepo() {
 	}
 
 	if cloneRepo {
+		loading := createLoader("Cloning MLC repo...")
 		cmd := exec.Command("git", "clone", "--recursive", repo)
 		osToCmdOutput(cmd)
 		err := cmd.Run()
 		if err != nil {
 			cliError("Error cloning MLC repo: ", err)
 		}
+		stopLoader(loading)
+		println(Success + "Cloned MLC repo")
 	}
 }
 
 func (platform *BasePlatform) InstallMLC() {
+	loading := createLoader("Installing MLC to environment...")
 	installCmd := exec.Command("conda", "run", "-n", platform.CliEnv, "pip", "install", ".")
 	installCmd.Dir = "mlc-llm/python"
 	osToCmdOutput(installCmd)
@@ -103,6 +112,8 @@ func (platform *BasePlatform) InstallMLC() {
 	if err != nil {
 		cliError("Error installing MLC: ", err)
 	}
+	stopLoader(loading)
+	println(Success + "Installed MLC")
 }
 
 func (platform *BasePlatform) RunMLCModel() {
@@ -167,6 +178,7 @@ func (platform *BasePlatform) RunMLCModel() {
 }
 
 func (platform *BasePlatform) CreateEnvironments() {
+	loading := createLoader("Creating Environments...")
 	createBuildEnvCmd := exec.Command("conda", "create", "-n", platform.BuildEnv, "-c", "conda-forge", "--yes", "cmake=3.29", "rust", "git", "python=3.11", "pip", "sentencepiece", "git-lfs")
 	osToCmdOutput(createBuildEnvCmd)
 	err := createBuildEnvCmd.Run()
@@ -179,6 +191,8 @@ func (platform *BasePlatform) CreateEnvironments() {
 	if err != nil {
 		cliError("Error creating cli environment: ", err)
 	}
+	stopLoader(loading)
+	println(Success + "Created Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
 }
 
 func (platform *BasePlatform) ClearEnvironments() {
@@ -188,19 +202,23 @@ func (platform *BasePlatform) ClearEnvironments() {
 	}
 	_, resp, err := prompt.Run()
 	if err != nil {
+
 		cliError("Error getting clear environments response: ", err)
 	}
 	if resp == "Yes" {
-		fmt.Println("Removing build environment:", platform.BuildEnv)
+		loading := createLoader(fmt.Sprintf("Removing Environments %s ...", platform.BuildEnv))
 		removeBuildCmd := exec.Command("conda", "env", "remove", "--name", platform.BuildEnv, "--yes")
 		osToCmdOutput(removeBuildCmd)
 		_ = removeBuildCmd.Run() // Ignore the error if the environment doesn't exist
+		stopLoader(loading)
 
-		fmt.Println("Removing CLI environment:", platform.CliEnv)
+		loading = createLoader(fmt.Sprintf("Removing Environments %s ...", platform.CliEnv))
 		removeCliCmd := exec.Command("conda", "env", "remove", "--name", platform.CliEnv, "--yes")
 		osToCmdOutput(removeCliCmd)
 		_ = removeCliCmd.Run() // Ignore the error if the environment doesn't exist
+		stopLoader(loading)
 	}
+	println(Success + "Cleared Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
 }
 
 func (platform *BasePlatform) CreateDirectories() {
@@ -241,6 +259,7 @@ func CreatePlatform() Platform {
 	envNames := PromptEnvNames()
 	switch runtime.GOOS {
 	case "darwin":
+		println(Success + "Created Platform: MacOS")
 		return &MacOSPlatform{
 			BasePlatform: BasePlatform{
 				Name:     "MacOS",
@@ -249,6 +268,7 @@ func CreatePlatform() Platform {
 			},
 		}
 	case "linux":
+		println(Success + "Created Platform: Linux")
 		return &LinuxPlatform{
 			BasePlatform: BasePlatform{
 				Name:     "Linux",
@@ -257,6 +277,7 @@ func CreatePlatform() Platform {
 			},
 		}
 	case "windows":
+		println(Success + "Created Platform: Windows")
 		return &WindowsPlatform{
 			BasePlatform: BasePlatform{
 				Name:     "Windows",
@@ -265,7 +286,7 @@ func CreatePlatform() Platform {
 			},
 		}
 	default:
-		fmt.Printf("Unsupported OS: %s\n", runtime.GOOS)
+		cliError(Error+"Error creating platform: "+runtime.GOOS, nil)
 		os.Exit(1)
 	}
 	return nil
