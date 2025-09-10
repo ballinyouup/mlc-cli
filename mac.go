@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 )
@@ -27,7 +26,8 @@ func (mac *MacOSPlatform) InstallTVM() {
 
 	if installMethod == "Pre-built" {
 		loading := createLoader("Installing Pre-built TVM...")
-		cmd := exec.Command("conda", "run", "-n", mac.CliEnv, "pip", "install", "--pre", "-U", "-f", "https://mlc.ai/wheels", "mlc-ai-nightly-cpu")
+		commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && pip install --pre -U -f https://mlc.ai/wheels mlc-ai-nightly-cpu", mac.CliEnv)
+		cmd := exec.Command("bash", "-c", commandString)
 		osToCmdOutput(cmd)
 		err := cmd.Run()
 		if err != nil {
@@ -88,7 +88,7 @@ func (mac *MacOSPlatform) GenerateConfig() {
 
 	input := strings.Join(answers, "\n") + "\n"
 
-	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && (conda activate %s && echo -e '%s' | python3 ../cmake/gen_cmake_config.py)", mac.BuildEnv, input)
+	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && echo -e '%s' | python3 ../cmake/gen_cmake_config.py", mac.BuildEnv, input)
 	cmd := exec.Command("bash", "-c", commandString)
 	cmd.Dir = "mlc-llm/build"
 	osToCmdOutput(cmd)
@@ -103,22 +103,26 @@ func (mac *MacOSPlatform) GenerateConfig() {
 
 func (mac *MacOSPlatform) BuildMLC() {
 	loading := createLoader("Building MLC...")
-	cmakeCmd := exec.Command("conda", "run", "-n", mac.BuildEnv, "cmake", "..")
-	cmakeCmd.Dir = "mlc-llm/build"
-	osToCmdOutput(cmakeCmd)
-	err := cmakeCmd.Run()
-	if err != nil {
-		cliError("Error running cmake: ", err)
-	}
 
-	nCores := runtime.NumCPU() // Get the number of CPU cores
-	buildCmd := exec.Command("conda", "run", "-n", mac.BuildEnv, "cmake", "--build", ".", "--parallel", fmt.Sprintf("%d", nCores))
-	buildCmd.Dir = "mlc-llm/build"
-	osToCmdOutput(buildCmd)
-	err = buildCmd.Run()
+	// Get number of cores using macOS-specific command like the shell script
+	getCoresCmd := exec.Command("sysctl", "-n", "hw.ncpu")
+	coresOutput, err := getCoresCmd.Output()
+	if err != nil {
+		cliError("Error getting CPU cores: ", err)
+	}
+	nCores := strings.TrimSpace(string(coresOutput))
+
+	// Use single shell command with proper conda sourcing like the shell script
+	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && cmake .. && cmake --build . --parallel %s", mac.BuildEnv, nCores)
+	cmd := exec.Command("bash", "-c", commandString)
+	cmd.Dir = "mlc-llm/build"
+	osToCmdOutput(cmd)
+
+	err = cmd.Run()
 	if err != nil {
 		cliError("Error building MLC: ", err)
 	}
+
 	stopLoader(loading)
 	println(Success + "Built MLC")
 }
@@ -129,19 +133,14 @@ func (mac *MacOSPlatform) BuildTVM() {
 
 func (mac *MacOSPlatform) BuildAndroid() {
 	loading := createLoader("Building Android...")
-	// Check Dependencies
+	// Check Dependencies using proper conda sourcing instead of conda run -n
 	installRustString := "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-	rustcCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "rustc")
-	if err := rustcCmd.Run(); err != nil {
-		cliError("rustc is not installed.\n"+installRustString, err)
-	}
-	cargoCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "cargo")
-	if err := cargoCmd.Run(); err != nil {
-		cliError("cargo is not installed.\n"+installRustString, err)
-	}
-	rustupCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "which", "rustup")
-	if err := rustupCmd.Run(); err != nil {
-		cliError("rustup is not installed.\n"+installRustString, err)
+
+	// Check for rustc, cargo, and rustup using single shell command with conda activation
+	checkDepsCmd := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && which rustc && which cargo && which rustup", mac.CliEnv)
+	cmd := exec.Command("bash", "-c", checkDepsCmd)
+	if err := cmd.Run(); err != nil {
+		cliError("Rust toolchain is not installed.\n"+installRustString, err)
 	}
 
 	// Get Paths
@@ -151,7 +150,9 @@ func (mac *MacOSPlatform) BuildAndroid() {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 	androidNDK := filepath.Join(ndkRoot, entries[len(entries)-1].Name())
 
-	buildCmd := exec.Command("conda", "run", "-n", mac.CliEnv, "mlc_llm", "package")
+	// Use proper conda sourcing for the build command
+	buildCmdString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && mlc_llm package", mac.CliEnv)
+	buildCmd := exec.Command("bash", "-c", buildCmdString)
 	buildCmd.Dir = "mlc-llm/android/MLCChat"
 	buildCmd.Env = append(os.Environ(),
 		"MLC_LLM_SOURCE_DIR="+filepath.Join(wd, "mlc-llm"),

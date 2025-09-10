@@ -1,9 +1,9 @@
 #!/bin/bash
 
-source $(conda info --base)/etc/profile.d/conda.sh
+source "$(conda info --base)/etc/profile.d/conda.sh"
 
-CLI_VENV="cli-venv"
-BUILD_VENV="mlc-chat-venv"
+CLI_VENV="mlc-cli-venv"
+BUILD_VENV="mlc-llm-venv"
 
 echo  -e "\ny\ny" | conda env remove --name ${CLI_VENV}
 echo  -e "\ny\ny" | conda env remove --name ${BUILD_VENV}

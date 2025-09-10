@@ -75,6 +75,8 @@ func main() {
 	}
 	if selection == "Build" {
 		platform := CreatePlatform()
+		// TODO: Ask the user if we should keep current environments
+
 		platform.ClearEnvironments()
 		platform.CreateEnvironments()
 		platform.InstallTVM()

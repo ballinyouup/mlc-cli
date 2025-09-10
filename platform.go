@@ -105,8 +105,10 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 func (platform *BasePlatform) InstallMLC() {
 	loading := createLoader("Installing MLC to environment...")
-	installCmd := exec.Command("conda", "run", "-n", platform.CliEnv, "pip", "install", ".")
-	installCmd.Dir = "mlc-llm/python"
+
+	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && cd python && pip install --no-deps .", platform.CliEnv)
+	installCmd := exec.Command("bash", "-c", commandString)
+	installCmd.Dir = "mlc-llm"
 	osToCmdOutput(installCmd)
 	err := installCmd.Run()
 	if err != nil {
@@ -146,20 +148,13 @@ func (platform *BasePlatform) RunMLCModel() {
 
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		fmt.Println("Cloning model...")
-		gitCmd := exec.Command("conda", "run", "-n", platform.CliEnv, "git", "clone", url)
+		commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && git clone %s && cd %s && git lfs pull", platform.CliEnv, url, modelName)
+		gitCmd := exec.Command("bash", "-c", commandString)
 		gitCmd.Dir = "mlc-llm/models/"
 		osToCmdOutput(gitCmd)
 		err = gitCmd.Run()
 		if err != nil {
-			cliError("Error cloning model: ", err)
-		}
-
-		gitPullCmd := exec.Command("conda", "run", "-n", platform.CliEnv, "git", "lfs", "pull")
-		gitPullCmd.Dir = modelPath
-		osToCmdOutput(gitPullCmd)
-		err = gitPullCmd.Run()
-		if err != nil {
-			cliError("Error pulling model: ", err)
+			cliError("Error cloning and pulling model: ", err)
 		}
 	} else {
 		fmt.Println("Model directory already exists, skipping clone.")
@@ -179,18 +174,20 @@ func (platform *BasePlatform) RunMLCModel() {
 
 func (platform *BasePlatform) CreateEnvironments() {
 	loading := createLoader("Creating Environments...")
-	createBuildEnvCmd := exec.Command("conda", "create", "-n", platform.BuildEnv, "-c", "conda-forge", "--yes", "cmake=3.29", "rust", "git", "python=3.11", "pip", "sentencepiece", "git-lfs")
-	osToCmdOutput(createBuildEnvCmd)
-	err := createBuildEnvCmd.Run()
+
+	// Create both environments in a single shell command like the shell script
+	commandString := fmt.Sprintf(`source $(conda info --base)/etc/profile.d/conda.sh && \
+		conda create -n %s -c conda-forge --yes "cmake=3.29" rust git python=3.11 pip sentencepiece git-lfs && \
+		conda create -n %s -c conda-forge --yes "cmake=3.29" rust git python=3.11 pip sentencepiece git-lfs`,
+		platform.BuildEnv, platform.CliEnv)
+
+	cmd := exec.Command("bash", "-c", commandString)
+	osToCmdOutput(cmd)
+	err := cmd.Run()
 	if err != nil {
-		cliError("Error creating build environment: ", err)
+		cliError("Error creating environments: ", err)
 	}
-	createCliEnvCmd := exec.Command("conda", "create", "-n", platform.CliEnv, "-c", "conda-forge", "--yes", "cmake=3.29", "rust", "git", "python=3.11", "pip", "sentencepiece", "git-lfs")
-	osToCmdOutput(createCliEnvCmd)
-	err = createCliEnvCmd.Run()
-	if err != nil {
-		cliError("Error creating cli environment: ", err)
-	}
+
 	stopLoader(loading)
 	println(Success + "Created Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
 }
@@ -206,16 +203,17 @@ func (platform *BasePlatform) ClearEnvironments() {
 		cliError("Error getting clear environments response: ", err)
 	}
 	if resp == "Yes" {
-		loading := createLoader(fmt.Sprintf("Removing Environments %s ...", platform.BuildEnv))
-		removeBuildCmd := exec.Command("conda", "env", "remove", "--name", platform.BuildEnv, "--yes")
-		osToCmdOutput(removeBuildCmd)
-		_ = removeBuildCmd.Run() // Ignore the error if the environment doesn't exist
-		stopLoader(loading)
+		loading := createLoader(fmt.Sprintf("Removing Environments %s, %s ...", platform.BuildEnv, platform.CliEnv))
 
-		loading = createLoader(fmt.Sprintf("Removing Environments %s ...", platform.CliEnv))
-		removeCliCmd := exec.Command("conda", "env", "remove", "--name", platform.CliEnv, "--yes")
-		osToCmdOutput(removeCliCmd)
-		_ = removeCliCmd.Run() // Ignore the error if the environment doesn't exist
+		commandString := fmt.Sprintf(`source $(conda info --base)/etc/profile.d/conda.sh && \
+			echo -e "\ny\ny" | conda env remove --name %s && \
+			echo -e "\ny\ny" | conda env remove --name %s`,
+			platform.BuildEnv, platform.CliEnv)
+
+		cmd := exec.Command("bash", "-c", commandString)
+		osToCmdOutput(cmd)
+		_ = cmd.Run() // Ignore the error if the environments don't exist
+
 		stopLoader(loading)
 	}
 	println(Success + "Cleared Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
