@@ -2,7 +2,7 @@
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-BUILD_VENV="mlc-llm-venv"
+BUILD_VENV="mlc-chat-venv"
 
 conda activate ${BUILD_VENV}
 
