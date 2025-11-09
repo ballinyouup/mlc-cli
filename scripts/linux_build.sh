@@ -6,7 +6,7 @@ BUILD_VENV="mlc-llm-venv"
 
 conda activate ${BUILD_VENV}
 
-git clone --recursive https://github.com/mlc-ai/mlc-llm.git
+git clone --recursive https://github.com/mlc-ai/mlc-llm.git && cd mlc-llm
 
 mkdir -p build && cd build
 
