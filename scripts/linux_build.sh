@@ -12,6 +12,12 @@ mkdir -p build && cd build
 
 python3 ../cmake/gen_cmake_config.py
 
+# Set CUDA environment variables
+export PATH=/usr/local/cuda-13.0/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-13.0/lib64:$LD_LIBRARY_PATH
+export CUDACXX=/usr/local/cuda-13.0/bin/nvcc
+export CUDA_HOME=/usr/local/cuda-13.0
+
 if [[ "$(uname)" == "Darwin" ]]; then
     NCORES=$(sysctl -n hw.ncpu)
 else
