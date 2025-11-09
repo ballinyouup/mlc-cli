@@ -6,6 +6,9 @@ BUILD_VENV="mlc-chat-venv"
 
 conda activate ${BUILD_VENV}
 
+# Install TVM
+pip install --pre -U -f https://mlc.ai/wheels mlc-ai-nightly-cu130
+
 git clone --recursive https://github.com/mlc-ai/mlc-llm.git && cd mlc-llm
 
 mkdir -p build && cd build
@@ -24,6 +27,6 @@ else
     NCORES=$(nproc)
 fi
 
-cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && make -j $(nproc) && cd ..
+cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && make -j ${NCORES} && cd ..
 
 conda deactivate
