@@ -21,8 +21,16 @@ cd mlc-llm/build
 CUTLASS="${CUDA}"
 CUBLAS="${CUDA}"
 
-ANSWERS="${TVM_SOURCE_DIR}\n${CUDA}\n${CUTLASS}\n${CUBLAS}\n${ROCM}\n${VULKAN}\n${METAL}\n${OPENCL}"
-
-echo -e "${ANSWERS}" | python3 ../cmake/gen_cmake_config.py
+# Build the answers string with explicit newlines
+# Add extra newlines at the end to handle any additional prompts
+printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
+    "${TVM_SOURCE_DIR}" \
+    "${CUDA}" \
+    "${CUTLASS}" \
+    "${CUBLAS}" \
+    "${ROCM}" \
+    "${VULKAN}" \
+    "${METAL}" \
+    "${OPENCL}" | python3 ../cmake/gen_cmake_config.py
 
 conda deactivate
