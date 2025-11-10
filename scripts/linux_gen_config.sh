@@ -13,14 +13,14 @@ METAL="${6:-n}"
 OPENCL="${7:-n}"
 
 # Check if mlc-llm directory exists
-if [ ! -d "mlc-llm" ]; then
+if [ ! -d "mlc-llm2025" ]; then
     echo "Error: mlc-llm directory not found. Please clone the repository first."
     exit 1
 fi
 
 conda activate ${BUILD_VENV}
 
-cd mlc-llm/build
+cd mlc-llm2025/build
 
 # Generate answers for gen_cmake_config.py
 # The script asks for: TVM_SOURCE_DIR, CUDA, CUTLASS, CUBLAS, ROCM, Vulkan, Metal, OpenCL
