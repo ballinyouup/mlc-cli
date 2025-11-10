@@ -4,7 +4,7 @@ set -e  # Exit on error
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Accept parameters
-BUILD_VENV="${1:-mlc-chat-venv}"
+BUILD_VENV="${1:-mlc-cli-venv}"
 TVM_SOURCE_DIR="${2:-}"
 CUDA="${3:-n}"
 ROCM="${4:-n}"
