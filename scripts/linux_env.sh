@@ -20,7 +20,6 @@ conda create -n ${BUILD_VENV} -c conda-forge --yes \
     git \
     python=3.13 \
     pip \
-    sentencepiece \
     git-lfs
 
 echo "Creating CLI environment: ${CLI_VENV}"
@@ -30,7 +29,6 @@ conda create -n ${CLI_VENV} -c conda-forge --yes \
     git \
     python=3.13 \
     pip \
-    sentencepiece \
     git-lfs
 
 echo "Environments created successfully"
