@@ -26,9 +26,9 @@ cd mlc-llm2025/build
 # Generate answers for gen_cmake_config.py
 # The script asks for: TVM_SOURCE_DIR, CUDA, CUTLASS, CUBLAS, ROCM, Vulkan, Metal, OpenCL, FlashInfer, CUDA Compute Capability
 # If CUDA is enabled, also enable CUTLASS, CUBLAS, and FlashInfer by default
-CUTLASS="${CUDA}"
-CUBLAS="${CUDA}"
-FLASHINFER="${CUDA}"
+CUTLASS="n"
+CUBLAS="n"
+FLASHINFER="n"
 # RTX 3060 Ti has compute capability 8.6, which is entered as 86
 CUDA_COMPUTE_CAP="86"
 
@@ -43,7 +43,6 @@ printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
     "${VULKAN}" \
     "${METAL}" \
     "${OPENCL}" \
-    "${FLASHINFER}" \
-    "${CUDA_COMPUTE_CAP}" | python3 ../cmake/gen_cmake_config.py
+    "${FLASHINFER}" \ | python3 ../cmake/gen_cmake_config.py
 
 conda deactivate
