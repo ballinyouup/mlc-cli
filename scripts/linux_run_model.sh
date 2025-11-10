@@ -23,6 +23,6 @@ fi
 
 # Run the model
 cd ${MODEL_PATH}
-mlc_llm chat .
+mlc_llm chat . --device cuda
 
 conda deactivate
