@@ -34,7 +34,7 @@ CUDA_COMPUTE_CAP="86"
 
 # Build the answers string with explicit newlines
 # Add extra newlines at the end to handle any additional prompts
-printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
+printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
     "${TVM_SOURCE_DIR}" \
     "${CUDA}" \
     "${CUTLASS}" \
@@ -43,6 +43,6 @@ printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
     "${VULKAN}" \
     "${METAL}" \
     "${OPENCL}" \
-    "${FLASHINFER}" \ | python3 ../cmake/gen_cmake_config.py
+    "${FLASHINFER}" | python3 ../cmake/gen_cmake_config.py
 
 conda deactivate
