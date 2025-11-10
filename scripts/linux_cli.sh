@@ -11,7 +11,12 @@ conda activate ${CLI_VENV}
 if [ "$INSTALL_METHOD" = "prebuilt" ]; then
     echo "Installing pre-built TVM..."
     # pip install --pre -U -f https://mlc.ai/wheels mlc-ai-nightly-cu130
-    pip install ../wheels/mlc_ai_nightly_cu130-*.whl
+    WHEEL_FILE=$(ls ../wheels/mlc_ai_nightly_cu130-*.whl 2>/dev/null | head -n 1)
+    if [ -z "$WHEEL_FILE" ]; then
+        echo "ERROR: No wheel file found in ../wheels/"
+        exit 1
+    fi
+    pip install "$WHEEL_FILE"
 else
     echo "Building TVM from source not yet implemented"
     exit 1
