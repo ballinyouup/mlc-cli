@@ -77,12 +77,13 @@ func (platform *BasePlatform) PromptMLCRepo() {
 func (platform *BasePlatform) InstallMLC() {
 	loading := createLoader("Installing MLC to environment...")
 	cmd := exec.Command("bash", "scripts/linux_install_mlc.sh", platform.CliEnv)
+	cmd.Dir = "."
 	osToCmdOutput(cmd)
 	err := cmd.Run()
+	stopLoader(loading)
 	if err != nil {
 		cliError("Error installing MLC: ", err)
 	}
-	stopLoader(loading)
 	println(Success + "Installed MLC")
 }
 

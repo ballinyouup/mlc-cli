@@ -1,9 +1,21 @@
 #!/bin/bash
+set -e  # Exit on error
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Accept CLI environment name as argument
 CLI_VENV="${1:-mlc-cli-venv}"
+
+# Check if mlc-llm directory exists
+if [ ! -d "mlc-llm" ]; then
+    echo "Error: mlc-llm directory not found. Please clone the repository first."
+    exit 1
+fi
+
+if [ ! -d "mlc-llm/python" ]; then
+    echo "Error: mlc-llm/python directory not found. Repository may be incomplete."
+    exit 1
+fi
 
 conda activate ${CLI_VENV}
 

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/manifoldco/promptui"
 	"os/exec"
+
+	"github.com/manifoldco/promptui"
 )
 
 type LinuxPlatform struct {
@@ -46,24 +47,26 @@ func (linux *LinuxPlatform) GenerateConfig() {
 
 	loading := createLoader("Generating Config...")
 	cmd := exec.Command("bash", "scripts/linux_gen_config.sh", linux.BuildEnv, TvmSourceDir, CUDA, ROCM, VULKAN, METAL, OPENCL)
+	cmd.Dir = "."
 	osToCmdOutput(cmd)
 	err = cmd.Run()
+	stopLoader(loading)
 	if err != nil {
 		cliError("Error generating config: ", err)
 	}
-	stopLoader(loading)
 	println(Success + "Generated Config")
 }
 
 func (linux *LinuxPlatform) BuildMLC() {
 	loading := createLoader("Building MLC...")
 	cmd := exec.Command("bash", "scripts/linux_build.sh", linux.BuildEnv)
+	cmd.Dir = "."
 	osToCmdOutput(cmd)
 	err := cmd.Run()
+	stopLoader(loading)
 	if err != nil {
 		cliError("Error building MLC: ", err)
 	}
-	stopLoader(loading)
 	println(Success + "Built MLC")
 }
 

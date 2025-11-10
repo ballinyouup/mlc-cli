@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/manifoldco/promptui"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/manifoldco/promptui"
 )
 
 type MacOSPlatform struct {

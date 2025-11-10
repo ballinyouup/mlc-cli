@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/manifoldco/promptui"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/manifoldco/promptui"
 )
 
 var verbose bool = false

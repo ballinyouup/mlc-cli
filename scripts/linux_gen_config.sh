@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e  # Exit on error
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
@@ -10,6 +11,12 @@ ROCM="${4:-n}"
 VULKAN="${5:-n}"
 METAL="${6:-n}"
 OPENCL="${7:-n}"
+
+# Check if mlc-llm directory exists
+if [ ! -d "mlc-llm" ]; then
+    echo "Error: mlc-llm directory not found. Please clone the repository first."
+    exit 1
+fi
 
 conda activate ${BUILD_VENV}
 
