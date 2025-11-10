@@ -11,8 +11,6 @@ import (
 )
 
 type Platform interface {
-	InstallTVM()
-	BuildTVM()
 	GenerateConfig()
 	BuildMLC()
 	InstallMLC()
@@ -22,39 +20,11 @@ type Platform interface {
 	ClearEnvironments()
 	CreateDirectories()
 	BuildAndroid()
-	GetName() string
-	GetBuildEnv() string
-	GetCliEnv() string
-	// CheckDependencies() error // Check if all dependencies are installed
 }
 type BasePlatform struct {
 	BuildEnv string
 	CliEnv   string
 	Name     string
-}
-
-func (platform *BasePlatform) CheckCUDA() {
-	cmd := exec.Command("nvidia-smi")
-	err := cmd.Run()
-	if err != nil {
-		cliError("CUDA not found. Install CUDA and try again.", err)
-	}
-}
-
-func (platform *BasePlatform) CheckROCM() {
-	cmd := exec.Command("rocm-smi")
-	err := cmd.Run()
-	if err != nil {
-		cliError("ROCM not found. Install ROCM and try again.", err)
-	}
-}
-
-func (platform *BasePlatform) CheckVulkan() {
-	cmd := exec.Command("vulkaninfo")
-	err := cmd.Run()
-	if err != nil {
-		cliError("Vulkan not found. Install Vulkan and try again.", err)
-	}
 }
 
 func (platform *BasePlatform) PromptMLCRepo() {

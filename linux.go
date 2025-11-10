@@ -9,32 +9,6 @@ type LinuxPlatform struct {
 	BasePlatform
 }
 
-func (linux *LinuxPlatform) InstallTVM() {
-	prompt := promptui.Select{
-		Label: "Install tvm:",
-		Items: []string{"Pre-built", "From source"},
-	}
-	_, installMethod, err := prompt.Run()
-	if err != nil {
-		cliError("Error getting install tvm response: ", err)
-	}
-
-	loading := createLoader("Installing TVM...")
-	installMethodArg := "prebuilt"
-	if installMethod == "From source" {
-		installMethodArg = "source"
-	}
-
-	cmd := exec.Command("bash", "scripts/linux_cli.sh", linux.CliEnv, installMethodArg)
-	osToCmdOutput(cmd)
-	err = cmd.Run()
-	if err != nil {
-		cliError("Error installing TVM: ", err)
-	}
-	stopLoader(loading)
-	println(Success + "Installed TVM")
-}
-
 func (linux *LinuxPlatform) GenerateConfig() {
 	CUDA := "n"
 	ROCM := "n"
@@ -93,22 +67,6 @@ func (linux *LinuxPlatform) BuildMLC() {
 	println(Success + "Built MLC")
 }
 
-func (linux *LinuxPlatform) BuildTVM() {
-	//TODO
-}
-
 func (linux *LinuxPlatform) BuildAndroid() {
-	//TODO
-}
-
-func (linux *LinuxPlatform) GetName() string {
-	return linux.Name
-}
-
-func (linux *LinuxPlatform) GetBuildEnv() string {
-	return linux.BuildEnv
-}
-
-func (linux *LinuxPlatform) GetCliEnv() string {
-	return linux.CliEnv
+	//TODO: Implement Android build
 }

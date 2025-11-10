@@ -79,12 +79,11 @@ func main() {
 
 		platform.ClearEnvironments()
 		platform.CreateEnvironments()
-		platform.InstallTVM()
 		platform.PromptMLCRepo()
 		platform.CreateDirectories()
 		platform.GenerateConfig()
 		platform.BuildMLC()
-		platform.InstallMLC()
+		platform.InstallMLC() // This now installs both MLC and TVM
 		println("MLC-LLM setup complete!")
 
 	} else if selection == "Run" {
