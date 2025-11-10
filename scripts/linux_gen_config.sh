@@ -24,14 +24,15 @@ mkdir -p mlc-llm2025/build
 cd mlc-llm2025/build
 
 # Generate answers for gen_cmake_config.py
-# The script asks for: TVM_SOURCE_DIR, CUDA, CUTLASS, CUBLAS, ROCM, Vulkan, Metal, OpenCL
-# If CUDA is enabled, also enable CUTLASS and CUBLAS by default
+# The script asks for: TVM_SOURCE_DIR, CUDA, CUTLASS, CUBLAS, ROCM, Vulkan, Metal, OpenCL, FlashInfer
+# If CUDA is enabled, also enable CUTLASS, CUBLAS, and FlashInfer by default
 CUTLASS="${CUDA}"
 CUBLAS="${CUDA}"
+FLASHINFER="${CUDA}"
 
 # Build the answers string with explicit newlines
 # Add extra newlines at the end to handle any additional prompts
-printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
+printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
     "${TVM_SOURCE_DIR}" \
     "${CUDA}" \
     "${CUTLASS}" \
@@ -39,6 +40,7 @@ printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
     "${ROCM}" \
     "${VULKAN}" \
     "${METAL}" \
-    "${OPENCL}" | python3 ../cmake/gen_cmake_config.py
+    "${OPENCL}" \
+    "${FLASHINFER}" | python3 ../cmake/gen_cmake_config.py
 
 conda deactivate
