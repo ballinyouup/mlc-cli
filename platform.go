@@ -39,7 +39,7 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 	// Check if the repo folder already exists and if we should clone
 	cloneRepo := false
-	if _, err := os.Stat("mlc-llm"); err == nil {
+	if _, err := os.Stat("mlc-llm2025"); err == nil {
 		prompt := promptui.Select{
 			Label: "MLC repo already exists. Delete?",
 			Items: []string{"Yes", "No"},
@@ -49,7 +49,7 @@ func (platform *BasePlatform) PromptMLCRepo() {
 			cliError("Error getting clone MLC repo response: ", err)
 		}
 		if resp == "Yes" {
-			err := os.RemoveAll("mlc-llm")
+			err := os.RemoveAll("mlc-llm2025")
 			if err != nil {
 				cliError("Error deleting MLC repo: ", err)
 			}
@@ -63,7 +63,7 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 	if cloneRepo {
 		loading := createLoader("Cloning MLC repo...")
-		cmd := exec.Command("git", "clone", "--recursive", repo)
+		cmd := exec.Command("git", "clone", "--recursive", repo, "mlc-llm2025")
 		osToCmdOutput(cmd)
 		err := cmd.Run()
 		if err != nil {
@@ -156,11 +156,11 @@ func (platform *BasePlatform) ClearEnvironments() {
 }
 
 func (platform *BasePlatform) CreateDirectories() {
-	if err := os.MkdirAll("mlc-llm/build", 0755); err != nil {
+	if err := os.MkdirAll("mlc-llm2025/build", 0755); err != nil {
 		cliError("Error creating build directory: ", err)
 	}
 
-	if err := os.MkdirAll("mlc-llm/models", 0755); err != nil {
+	if err := os.MkdirAll("mlc-llm2025/models", 0755); err != nil {
 		cliError("Error creating models directory: ", err)
 	}
 }

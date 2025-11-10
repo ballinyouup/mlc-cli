@@ -20,6 +20,7 @@ fi
 
 conda activate ${BUILD_VENV}
 
+mkdir -p mlc-llm2025/build
 cd mlc-llm2025/build
 
 # Generate answers for gen_cmake_config.py

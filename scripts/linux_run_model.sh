@@ -16,7 +16,7 @@ fi
 
 conda activate ${CLI_VENV}
 
-MODEL_PATH="mlc-llm/models/${MODEL_NAME}"
+MODEL_PATH="mlc-llm2025/models/${MODEL_NAME}"
 
 # Clone model if it doesn't exist
 if [ ! -d "${MODEL_PATH}" ]; then
