@@ -2,28 +2,35 @@
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
- CLI_VENV="mlc-cli-venv"
- BUILD_VENV="mlc-chat-venv"
+# Accept environment names as arguments, or use defaults
+CLI_VENV="${1:-mlc-cli-venv}"
+BUILD_VENV="${2:-mlc-chat-venv}"
+CLEAR_EXISTING="${3:-no}"
 
-echo  -e "\ny\ny" | conda env remove --name ${CLI_VENV}
-echo  -e "\ny\ny" | conda env remove --name ${BUILD_VENV}
+if [ "$CLEAR_EXISTING" = "yes" ]; then
+    echo "Removing existing environments..."
+    echo -e "\ny\ny" | conda env remove --name ${CLI_VENV}
+    echo -e "\ny\ny" | conda env remove --name ${BUILD_VENV}
+fi
 
-conda create -n ${BUILD_VENV} -c conda-forge \
+echo "Creating build environment: ${BUILD_VENV}"
+conda create -n ${BUILD_VENV} -c conda-forge --yes \
     "cmake>=3.24" \
     rust \
     git \
     python=3.13 \
-    git-lfs \
-#    pip
-#    sentencepiece
+    pip \
+    sentencepiece \
+    git-lfs
 
-
-  conda create -n ${CLI_VENV} -c conda-forge \
+echo "Creating CLI environment: ${CLI_VENV}"
+conda create -n ${CLI_VENV} -c conda-forge --yes \
     "cmake>=3.24" \
     rust \
     git \
     python=3.13 \
-    git-lfs \
-#    pip
-#    sentencepiece
-#    git-lfs
+    pip \
+    sentencepiece \
+    git-lfs
+
+echo "Environments created successfully"

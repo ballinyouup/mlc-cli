@@ -2,18 +2,10 @@
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-BUILD_VENV="mlc-chat-venv"
+# Accept build environment name as argument
+BUILD_VENV="${1:-mlc-chat-venv}"
 
 conda activate ${BUILD_VENV}
-
-# Install TVM
-pip install --pre -U -f https://mlc.ai/wheels mlc-ai-nightly-cu130
-
-git clone --recursive https://github.com/mlc-ai/mlc-llm.git && cd mlc-llm
-
-mkdir -p build && cd build
-
-python3 ../cmake/gen_cmake_config.py
 
 # Set CUDA environment variables
 export PATH=/usr/local/cuda-13.0/bin:$PATH
@@ -27,6 +19,8 @@ else
     NCORES=$(nproc)
 fi
 
-cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && make -j ${NCORES} && cd ..
+cd mlc-llm/build
+cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build . --parallel ${NCORES}
 
 conda deactivate

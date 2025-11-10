@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/manifoldco/promptui"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/manifoldco/promptui"
 )
 
 type Platform interface {
@@ -105,12 +106,9 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 func (platform *BasePlatform) InstallMLC() {
 	loading := createLoader("Installing MLC to environment...")
-
-	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && cd python && pip install --no-deps .", platform.CliEnv)
-	installCmd := exec.Command("bash", "-c", commandString)
-	installCmd.Dir = "mlc-llm"
-	osToCmdOutput(installCmd)
-	err := installCmd.Run()
+	cmd := exec.Command("bash", "scripts/linux_install_mlc.sh", platform.CliEnv)
+	osToCmdOutput(cmd)
+	err := cmd.Run()
 	if err != nil {
 		cliError("Error installing MLC: ", err)
 	}
@@ -128,7 +126,6 @@ func (platform *BasePlatform) RunMLCModel() {
 	}
 
 	modelName := strings.Split(url, "/")[4]
-	modelPath := "mlc-llm/models/" + modelName
 
 	if !strings.Contains(url, "huggingface.co") {
 		cliError("Invalid url. Must be a huggingface url", nil)
@@ -146,27 +143,11 @@ func (platform *BasePlatform) RunMLCModel() {
 		}
 	}
 
-	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-		fmt.Println("Cloning model...")
-		commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && conda activate %s && git clone %s && cd %s && git lfs pull", platform.CliEnv, url, modelName)
-		gitCmd := exec.Command("bash", "-c", commandString)
-		gitCmd.Dir = "mlc-llm/models/"
-		osToCmdOutput(gitCmd)
-		err = gitCmd.Run()
-		if err != nil {
-			cliError("Error cloning and pulling model: ", err)
-		}
-	} else {
-		fmt.Println("Model directory already exists, skipping clone.")
-	}
-
-	runCmdString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && (conda activate %s && mlc_llm chat .)", platform.CliEnv)
-	runCmd := exec.Command("bash", "-c", runCmdString)
-	runCmd.Dir = modelPath
-	runCmd.Stdin = os.Stdin
-	runCmd.Stdout = os.Stdout
-	osToCmdOutput(runCmd)
-	err = runCmd.Run()
+	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		cliError("Error running MLC: ", err)
 	}
@@ -174,20 +155,12 @@ func (platform *BasePlatform) RunMLCModel() {
 
 func (platform *BasePlatform) CreateEnvironments() {
 	loading := createLoader("Creating Environments...")
-
-	// Create both environments in a single shell command like the shell script
-	commandString := fmt.Sprintf(`source $(conda info --base)/etc/profile.d/conda.sh && \
-		conda create -n %s -c conda-forge --yes "cmake=3.29" rust git python=3.11 pip sentencepiece git-lfs && \
-		conda create -n %s -c conda-forge --yes "cmake=3.29" rust git python=3.11 pip sentencepiece git-lfs`,
-		platform.BuildEnv, platform.CliEnv)
-
-	cmd := exec.Command("bash", "-c", commandString)
+	cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "no")
 	osToCmdOutput(cmd)
 	err := cmd.Run()
 	if err != nil {
 		cliError("Error creating environments: ", err)
 	}
-
 	stopLoader(loading)
 	println(Success + "Created Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
 }
@@ -199,21 +172,13 @@ func (platform *BasePlatform) ClearEnvironments() {
 	}
 	_, resp, err := prompt.Run()
 	if err != nil {
-
 		cliError("Error getting clear environments response: ", err)
 	}
 	if resp == "Yes" {
 		loading := createLoader(fmt.Sprintf("Removing Environments %s, %s ...", platform.BuildEnv, platform.CliEnv))
-
-		commandString := fmt.Sprintf(`source $(conda info --base)/etc/profile.d/conda.sh && \
-			echo -e "\ny\ny" | conda env remove --name %s && \
-			echo -e "\ny\ny" | conda env remove --name %s`,
-			platform.BuildEnv, platform.CliEnv)
-
-		cmd := exec.Command("bash", "-c", commandString)
+		cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "yes")
 		osToCmdOutput(cmd)
 		_ = cmd.Run() // Ignore the error if the environments don't exist
-
 		stopLoader(loading)
 	}
 	println(Success + "Cleared Environments: " + platform.BuildEnv + ", " + platform.CliEnv)

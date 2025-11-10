@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"github.com/manifoldco/promptui"
 	"os/exec"
-	"runtime"
-	"strings"
 )
 
 type LinuxPlatform struct {
@@ -22,20 +19,20 @@ func (linux *LinuxPlatform) InstallTVM() {
 		cliError("Error getting install tvm response: ", err)
 	}
 
-	if installMethod == "Pre-built" {
-		loading := createLoader("Installing Pre-built TVM...")
-		cmd := exec.Command("conda", "run", "-n", linux.CliEnv, "pip", "install", "--pre", "-U", "-f", "https://mlc.ai/wheels", "mlc-ai-nightly-cpu")
-		osToCmdOutput(cmd)
-		err := cmd.Run()
-		if err != nil {
-			cliError("Error installing TVM: ", err)
-		}
-		stopLoader(loading)
-		println(Success + "Installed TVM")
-	} else {
-		// TODO: Build & Install TVM from source
+	loading := createLoader("Installing TVM...")
+	installMethodArg := "prebuilt"
+	if installMethod == "From source" {
+		installMethodArg = "source"
 	}
 
+	cmd := exec.Command("bash", "scripts/linux_cli.sh", linux.CliEnv, installMethodArg)
+	osToCmdOutput(cmd)
+	err = cmd.Run()
+	if err != nil {
+		cliError("Error installing TVM: ", err)
+	}
+	stopLoader(loading)
+	println(Success + "Installed TVM")
 }
 
 func (linux *LinuxPlatform) GenerateConfig() {
@@ -57,7 +54,6 @@ func (linux *LinuxPlatform) GenerateConfig() {
 		Items: []string{"CUDA", "ROCM", "VULKAN", "METAL", "OPENCL", "None"},
 	}
 	_, gpuRuntime, err := runtimePrompt.Run()
-	loading := createLoader("Generating Config...")
 	if err != nil {
 		cliError("Error getting GPU runtime: ", err)
 	}
@@ -74,22 +70,9 @@ func (linux *LinuxPlatform) GenerateConfig() {
 		OPENCL = "y"
 	}
 
-	answers := []string{
-		TvmSourceDir, // 1. TVM_SOURCE_DIR
-		CUDA,         // 2. Use CUDA
-		ROCM,         // 3. Use ROCM
-		VULKAN,       // 4. Use Vulkan
-		METAL,        // 5. Use Metal
-		OPENCL,       // 6. Use OpenCL
-	}
-
-	input := strings.Join(answers, "\n") + "\n"
-
-	commandString := fmt.Sprintf("source $(conda info --base)/etc/profile.d/conda.sh && (conda activate %s && echo -e '%s' | python3 ../cmake/gen_cmake_config.py)", linux.BuildEnv, input)
-	cmd := exec.Command("bash", "-c", commandString)
-	cmd.Dir = "mlc-llm/build"
+	loading := createLoader("Generating Config...")
+	cmd := exec.Command("bash", "scripts/linux_gen_config.sh", linux.BuildEnv, TvmSourceDir, CUDA, ROCM, VULKAN, METAL, OPENCL)
 	osToCmdOutput(cmd)
-
 	err = cmd.Run()
 	if err != nil {
 		cliError("Error generating config: ", err)
@@ -100,19 +83,9 @@ func (linux *LinuxPlatform) GenerateConfig() {
 
 func (linux *LinuxPlatform) BuildMLC() {
 	loading := createLoader("Building MLC...")
-	cmakeCmd := exec.Command("conda", "run", "-n", linux.BuildEnv, "cmake", "..")
-	cmakeCmd.Dir = "mlc-llm/build"
-	osToCmdOutput(cmakeCmd)
-	err := cmakeCmd.Run()
-	if err != nil {
-		cliError("Error running cmake: ", err)
-	}
-
-	nCores := runtime.NumCPU() // Get the number of CPU cores
-	buildCmd := exec.Command("conda", "run", "-n", linux.BuildEnv, "cmake", "--build", ".", "--parallel", fmt.Sprintf("%d", nCores))
-	buildCmd.Dir = "mlc-llm/build"
-	osToCmdOutput(buildCmd)
-	err = buildCmd.Run()
+	cmd := exec.Command("bash", "scripts/linux_build.sh", linux.BuildEnv)
+	osToCmdOutput(cmd)
+	err := cmd.Run()
 	if err != nil {
 		cliError("Error building MLC: ", err)
 	}
