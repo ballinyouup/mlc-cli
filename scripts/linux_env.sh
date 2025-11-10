@@ -16,7 +16,7 @@ fi
 echo "Creating build environment: ${BUILD_VENV}"
 conda create -n ${BUILD_VENV} -c conda-forge --yes \
     "cmake>=3.24" \
-    rust=1.80 \
+    rust \
     git \
     python=3.13 \
     pip \
@@ -25,7 +25,7 @@ conda create -n ${BUILD_VENV} -c conda-forge --yes \
 echo "Creating CLI environment: ${CLI_VENV}"
 conda create -n ${CLI_VENV} -c conda-forge --yes \
     "cmake>=3.24" \
-    rust=1.80 \
+    rusts \
     git \
     python=3.13 \
     pip \
