@@ -11,24 +11,25 @@ if [ "$CLEAR_EXISTING" = "yes" ]; then
     echo "Removing existing environments..."
     echo -e "\ny\ny" | conda env remove --name ${CLI_VENV}
     echo -e "\ny\ny" | conda env remove --name ${BUILD_VENV}
+
+    echo "Creating build environment: ${BUILD_VENV}"
+    conda create -n ${BUILD_VENV} -c conda-forge --yes \
+        "cmake>=3.24" \
+        rust \
+        git \
+        python=3.13 \
+        pip \
+        git-lfs
+
+    echo "Creating CLI environment: ${CLI_VENV}"
+    conda create -n ${CLI_VENV} -c conda-forge --yes \
+        "cmake>=3.24" \
+        rust \
+        git \
+        python=3.13 \
+        pip \
+        git-lfs
+
+    echo "Environments created successfully"
 fi
 
-echo "Creating build environment: ${BUILD_VENV}"
-conda create -n ${BUILD_VENV} -c conda-forge --yes \
-    "cmake>=3.24" \
-    rust \
-    git \
-    python=3.13 \
-    pip \
-    git-lfs
-
-echo "Creating CLI environment: ${CLI_VENV}"
-conda create -n ${CLI_VENV} -c conda-forge --yes \
-    "cmake>=3.24" \
-    rust \
-    git \
-    python=3.13 \
-    pip \
-    git-lfs
-
-echo "Environments created successfully"
