@@ -63,7 +63,7 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 	if cloneRepo {
 		loading := createLoader("Cloning MLC repo...")
-		cmd := exec.Command("git", "clone", "--recursive", repo, "mlc-llm2025")
+		cmd := exec.Command("git", "clone", "--recursive", repo, "mlc-llm")
 		osToCmdOutput(cmd)
 		err := cmd.Run()
 		if err != nil {
