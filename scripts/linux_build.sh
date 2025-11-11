@@ -7,8 +7,8 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 BUILD_VENV="${1:-mlc-chat-venv}"
 
 # Check if mlc-llm directory exists
-if [ ! -d "mlc-llm2025" ]; then
-    echo "Error: mlc-llm2025 directory not found. Please clone the repository first."
+if [ ! -d "mlc-llm" ]; then
+    echo "Error: mlc-llm directory not found. Please clone the repository first."
     exit 1
 fi
 

@@ -7,20 +7,15 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 CLI_VENV="${1:-mlc-cli-venv}"
 
 # Check if mlc-llm directory exists
-if [ ! -d "mlc-llm2025" ]; then
-    echo "Error: mlc-llm2025 directory not found. Please clone the repository first."
-    exit 1
-fi
-
-if [ ! -d "mlc-llm2025/python" ]; then
-    echo "Error: mlc-llm2025/python directory not found. Repository may be incomplete."
+if [ ! -d "mlc-llm" ]; then
+    echo "Error: mlc-llm directory not found. Please clone the repository first."
     exit 1
 fi
 
 conda activate ${CLI_VENV}
 
 # First install MLC Python package
-cd mlc-llm2025/python
+cd mlc-llm/python
 pip install -e .
 cd ../..
 

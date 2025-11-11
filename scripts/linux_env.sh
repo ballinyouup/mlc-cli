@@ -4,7 +4,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Accept environment names as arguments, or use defaults
 CLI_VENV="${1:-mlc-cli-venv}"
-BUILD_VENV="${2:-mlc-chat-venv}"
+BUILD_VENV="${2:-mlc-llm-venv}"
 CLEAR_EXISTING="${3:-no}"
 
 if [ "$CLEAR_EXISTING" = "yes" ]; then
