@@ -25,8 +25,8 @@ if [[ "$(uname)" == "Darwin" ]]; then
 else
     NCORES=$(nproc)
 fi
-mkdir -p mlc-llm2025/build
-cd mlc-llm2025/build
+mkdir -p mlc-llm/build
+cd mlc-llm/build
 
 # Check if CUDA is available and set architecture
 if command -v nvcc &> /dev/null; then
