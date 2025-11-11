@@ -25,7 +25,7 @@ conda create -n ${BUILD_VENV} -c conda-forge --yes \
 echo "Creating CLI environment: ${CLI_VENV}"
 conda create -n ${CLI_VENV} -c conda-forge --yes \
     "cmake>=3.24" \
-    rusts \
+    rust \
     git \
     python=3.13 \
     pip \
