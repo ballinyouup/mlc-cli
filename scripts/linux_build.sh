@@ -4,7 +4,7 @@ set -e  # Exit on error
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Accept build environment name as argument
-BUILD_VENV="${1:-mlc-chat-venv}"
+BUILD_VENV="${1:-mlc-llm-venv}"
 
 # Check if mlc-llm directory exists
 if [ ! -d "mlc-llm" ]; then
