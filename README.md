@@ -11,24 +11,25 @@ compiling models to MLC format, and running the models with custom model configs
 Options:
 - ```-v``` - Shows all the output (ex: ```go run . -v```)
 ### Platform
-- MacOS
-- Linux (TODO)
-- Windows (TODO)
+- Linux
+
+### Steps:
+1. Install Conda
+2. Install CUDA (Use ./linux_cuda.sh)
+3. Create the environments (Use ./linux_env.sh)
+4. Download prebuilt tvm from https://mlc.ai/wheels (mlc_ai_nightly_cu130-0.20.dev537-py3-none-manylinux_2_28_x86_64.whl) and place in wheels folder
+5. Create a GitHub personal access token and when asked for GitHub repo from cli, paste https://[YOUR_TOKEN]@github.com/[YOUR_REPO]
+6. Build MLC LLM (Use ./linux_build.sh)
+7. Generate Config (Use ./linux_gen_config.sh)
+8. Run Model (Use ./linux_run_model.sh) Only use MLC format models ex: https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
 
 ### GPU Runtime
-- Metal Apple M1/M2
-- Cuda (TODO)
-- RocM (TODO)
-- Vulkan (TODO)
-- OpenCL (TODO)
-- None
+- Cuda
+- None (CPU)
 
 ## Deployments
-- WebLLM (TODO)
-- REST Server (TODO)
 - CLI - Execute Run Command
 - Android
-- iOS (TODO)
 
 ## Android
 ```bash
@@ -36,12 +37,4 @@ Options:
 Open folder ./android/MLCChat as an Android Studio Project
 Connect your Android device to your machine. In the menu bar of Android Studio, click “Build → Make Project”.
 Once the build is finished, click “Run → Run ‘app’” and you will see the app launched on your phone.
-```
-
-### Possible Conflicts (Mac OS)
-During installation, any global packages installed through homebrew, like cmake, pip, conda, may have conflicts during installation.
-```bash
-  which cmake # try uninstalling from homebrew
-  which python # should point to miniconda or conda, not homebrew
-  open ~/.zshrc # comment out alias python=/opt/homebrew/bin/python3
 ```
