@@ -20,7 +20,7 @@ rm -f mlc-llm/python/mlc_llm/libmlc_llm_module.so
 
 # First install MLC Python package
 cd mlc-llm/python
-pip install -e .
+pip install .
 cd ../..
 
 # Then install the TVM wheel (required for running models)

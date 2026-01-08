@@ -21,7 +21,11 @@ Options:
 5. Create a GitHub personal access token and when asked for GitHub repo from cli, paste https://[YOUR_TOKEN]@github.com/[YOUR_REPO]
 6. Build MLC LLM (Use ./linux_build.sh)
 7. Generate Config (Use ./linux_gen_config.sh)
-8. Run Model (Use ./linux_run_model.sh) Only use MLC format models ex: https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
+8. Run Model (Use ./linux_run_model.sh) Only use MLC format models 
+ex: 
+   1. https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
+   2. https://huggingface.co/mlc-ai/Qwen3-4B-q4f16_1-MLC
+   3. https://huggingface.co/mlc-ai/Llama-3-8B-Instruct-q3f16_1-MLC
 
 ### GPU Runtime
 - Cuda
