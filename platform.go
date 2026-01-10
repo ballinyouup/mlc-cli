@@ -160,7 +160,7 @@ func (platform *BasePlatform) CreateDirectories() {
 		cliError("Error creating build directory: ", err)
 	}
 
-	if err := os.MkdirAll("mlc-llm/models", 0755); err != nil {
+	if err := os.MkdirAll("models", 0755); err != nil {
 		cliError("Error creating models directory: ", err)
 	}
 }

@@ -14,24 +14,18 @@ export LD_LIBRARY_PATH=/usr/local/cuda-13.0/lib64:$LD_LIBRARY_PATH
 export CUDACXX=/usr/local/cuda-13.0/bin/nvcc
 export CUDA_HOME=/usr/local/cuda-13.0
 
-# Check if mlc-llm directory exists
-if [ ! -d "mlc-llm" ]; then
-    echo "Error: mlc-llm directory not found. Please clone the repository first."
-    exit 1
-fi
-
 conda activate ${CLI_VENV}
-
-MODEL_PATH="mlc-llm/models/${MODEL_NAME}"
+mkdir -p models
+MODEL_PATH="models/${MODEL_NAME}"
 
 # Clone model if it doesn't exist
 if [ ! -d "${MODEL_PATH}" ]; then
     echo "Cloning model..."
-    cd mlc-llm/models
+    cd models
     git clone ${MODEL_URL}
     cd ${MODEL_NAME}
     git lfs pull
-    cd ../../..
+    cd ../..
 fi
 
 # Run the model
