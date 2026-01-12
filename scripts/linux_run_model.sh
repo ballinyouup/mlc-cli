@@ -18,14 +18,20 @@ conda activate ${CLI_VENV}
 mkdir -p models
 MODEL_PATH="models/${MODEL_NAME}"
 
-# Clone model if it doesn't exist
-if [ ! -d "${MODEL_PATH}" ]; then
-    echo "Cloning model..."
-    cd models
-    git clone ${MODEL_URL}
-    cd ${MODEL_NAME}
-    git lfs pull
-    cd ../..
+# Clone model if URL is provided and model doesn't exist
+if [ -n "${MODEL_URL}" ]; then
+    if [ ! -d "${MODEL_PATH}" ]; then
+        echo "Cloning model from HuggingFace..."
+        cd models
+        git clone ${MODEL_URL}
+        cd ${MODEL_NAME}
+        git lfs pull
+        cd ../..
+    else
+        echo "Model already exists, skipping download..."
+    fi
+else
+    echo "Using local model: ${MODEL_NAME}"
 fi
 
 # Run the model

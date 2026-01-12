@@ -2,31 +2,26 @@
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-CLI_VENV="mlc-cli-venv"
-BUILD_VENV="mlc-llm-venv"
+# Accept CLI environment name and install method as arguments
+CLI_VENV="${1:-mlc-cli-venv}"
+INSTALL_METHOD="${2:-prebuilt}"  # prebuilt or source
 
 conda activate ${CLI_VENV}
 
-# install mlc as a package
-# if mlc_llm is not recognized, comment out flash infer in python/requirements.txt
-cd mlc-llm/python && pip install .
-cd ..
-mkdir -p models
-cd ../models
-
-git clone https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
-cd Qwen3-1.7B-q4f16_1-MLC
-
-# install TVM
-pip install --pre -U -f https://mlc.ai/wheels mlc-ai-nightly-cpu
-pip install ninja
-echo "Setup complete. Running model..."
-echo "Run:"
-echo "  conda activate ${CLI_VENV}"
-echo "  cd models/Qwen3-1.7B-q4f16_1-MLC"
-echo "  MLC_JIT_POLICY=REDO mlc_llm chat . --device metal"
+if [ "$INSTALL_METHOD" = "prebuilt" ]; then
+    echo "Installing pre-built TVM..."
+    WHEEL_FILE=$(ls wheels/mlc_ai_nightly_cpu-*.whl 2>/dev/null | head -n 1)
+    if [ -z "$WHEEL_FILE" ]; then
+        echo "ERROR: No wheel file found in wheels/ directory"
+        echo "Current directory: $(pwd)"
+        echo "Looking for: wheels/mlc_ai_nightly_cpu-*.whl"
+        exit 1
+    fi
+    echo "Installing wheel: $WHEEL_FILE"
+    pip install "$WHEEL_FILE"
+else
+    echo "Building TVM from source not yet implemented"
+    exit 1
+fi
 
 conda deactivate
-
-# note: for different repo's,
-# please use submodule update --init --recursive --remote to fetch 3rdparty libs

@@ -12,8 +12,11 @@ Options:
 - ```-v``` - Shows all the output (ex: ```go run . -v```)
 ### Platform
 - Linux
+- Mac
 
 ### Steps:
+
+#### Linux
 1. Install Conda
 2. Install CUDA (Use ./linux_cuda.sh)
 3. Create the environments (Use ./linux_env.sh)
@@ -22,13 +25,24 @@ Options:
 6. Build MLC LLM (Use ./linux_build.sh)
 7. Generate Config (Use ./linux_gen_config.sh)
 8. Run Model (Use ./linux_run_model.sh) Only use MLC format models 
-ex: 
+
+#### Mac
+1. Install Conda
+2. Create the environments (Use ./mac_env.sh)
+3. Download prebuilt tvm from https://mlc.ai/wheels (mlc_ai_nightly-0.20.dev679-py3-none-macosx_13_0_arm64.whl) and place in wheels folder
+4. Create a GitHub personal access token and when asked for GitHub repo from cli, paste https://[YOUR_TOKEN]@github.com/[YOUR_REPO]
+5. Build MLC LLM (Use ./mac_build.sh)
+6. Generate Config (Use ./mac_gen_config.sh)
+7. Run Model (Use ./mac_run_model.sh) Only use MLC format models
+
+#### Model Examples
    1. https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
    2. https://huggingface.co/mlc-ai/Qwen3-4B-q4f16_1-MLC
    3. https://huggingface.co/mlc-ai/Llama-3-8B-Instruct-q3f16_1-MLC
 
 ### GPU Runtime
-- Cuda
+- Cuda (Linux)
+- Metal (Mac)
 - None (CPU)
 
 ## Deployments
