@@ -75,17 +75,34 @@ func main() {
 		cliError("Error getting selection: ", err)
 	}
 	if selection == "Build" {
-		platform := CreatePlatform()
-		// TODO: Ask the user if we should keep current environments
+		buildTypePrompt := promptui.Select{
+			Label: "Select build type",
+			Items: []string{"Prebuilt (recommended)", "Build from source"},
+		}
+		_, buildType, err := buildTypePrompt.Run()
+		if err != nil {
+			cliError("Error getting build type: ", err)
+		}
 
-		platform.ClearEnvironments()
-		platform.CreateEnvironments()
-		platform.PromptMLCRepo()
-		platform.CreateDirectories()
-		platform.GenerateConfig()
-		platform.BuildMLC()
-		platform.InstallMLC() // This now installs both MLC and TVM
-		println("MLC-LLM setup complete!")
+		platform := CreatePlatform()
+
+		if buildType == "Prebuilt (recommended)" {
+			platform.ClearEnvironments()
+			platform.CreatePrebuiltEnvironment()
+			platform.CreateDirectories()
+			platform.InstallPrebuilt()
+			println("MLC-LLM prebuilt setup complete!")
+		} else {
+			// Build from source flow
+			platform.ClearEnvironments()
+			platform.CreateEnvironments()
+			platform.PromptMLCRepo()
+			platform.CreateDirectories()
+			platform.GenerateConfig()
+			platform.BuildMLC()
+			platform.InstallMLC()
+			println("MLC-LLM source build complete!")
+		}
 
 	} else if selection == "Run" {
 		platform := CreatePlatform()

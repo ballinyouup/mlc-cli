@@ -24,7 +24,7 @@ pip install .
 cd ../..
 
 # Then install the TVM wheel (required for running models)
-WHEEL_FILE=$(ls wheels/mlc_ai_nightly_cu130-*.whl 2>/dev/null | head -n 1)
+WHEEL_FILE=$(ls wheels/mlc_ai_nightly_*.whl 2>/dev/null | head -n 1)
 if [ -n "$WHEEL_FILE" ]; then
     echo "Installing TVM wheel: $WHEEL_FILE"
     pip install "$WHEEL_FILE"

@@ -234,7 +234,7 @@ class Application:
 
 async def create_application(
     no_llm: bool = False,
-    model_path: str = "../models/Llama-3.2-3B-Instruct-q4f32_1-MLC",
+    model_path: str = "../mlc-llm/models/Qwen3-1.7B-q4f16_1-MLC",
 ) -> tuple[Application, PrismaConnection, MLCLLMProvider | None]:
     """
     Factory function to create and wire the application.
@@ -265,7 +265,7 @@ async def create_application(
     if not no_llm:
         from mlc_llm import MLCEngine
 
-        engine = MLCEngine(model_path, device="cuda")
+        engine = MLCEngine(model_path)
         llm_provider = MLCLLMProvider(engine)
 
     app = Application(

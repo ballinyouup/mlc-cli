@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/manifoldco/promptui"
@@ -14,9 +13,11 @@ type Platform interface {
 	GenerateConfig()
 	BuildMLC()
 	InstallMLC()
+	InstallPrebuilt()
 	PromptMLCRepo()
 	RunMLCModel()
 	CreateEnvironments()
+	CreatePrebuiltEnvironment()
 	ClearEnvironments()
 	CreateDirectories()
 	BuildAndroid()
@@ -76,13 +77,7 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 func (platform *BasePlatform) InstallMLC() {
 	loading := createLoader("Installing MLC to environment...")
-	var scriptName string
-	if runtime.GOOS == "darwin" {
-		scriptName = "scripts/mac_install_mlc.sh"
-	} else {
-		scriptName = "scripts/linux_install_mlc.sh"
-	}
-	cmd := exec.Command("bash", scriptName, platform.CliEnv)
+	cmd := exec.Command("bash", "scripts/linux_install_mlc.sh", platform.CliEnv)
 	cmd.Dir = "."
 	osToCmdOutput(cmd)
 	err := cmd.Run()
@@ -109,7 +104,7 @@ func (platform *BasePlatform) RunMLCModel() {
 
 	if source == "Local models folder" {
 		// List available models in the models directory
-		entries, err := os.ReadDir("models")
+		entries, err := os.ReadDir("mlc-llm/models")
 		if err != nil {
 			if os.IsNotExist(err) {
 				cliError("Models directory does not exist. Please download a model first.", nil)
@@ -170,13 +165,7 @@ func (platform *BasePlatform) RunMLCModel() {
 		}
 	}
 
-	var scriptName string
-	if runtime.GOOS == "darwin" {
-		scriptName = "scripts/mac_run_model.sh"
-	} else {
-		scriptName = "scripts/linux_run_model.sh"
-	}
-	cmd := exec.Command("bash", scriptName, platform.CliEnv, url, modelName)
+	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -188,13 +177,7 @@ func (platform *BasePlatform) RunMLCModel() {
 
 func (platform *BasePlatform) CreateEnvironments() {
 	loading := createLoader("Creating Environments...")
-	var scriptName string
-	if runtime.GOOS == "darwin" {
-		scriptName = "scripts/mac_env.sh"
-	} else {
-		scriptName = "scripts/linux_env.sh"
-	}
-	cmd := exec.Command("bash", scriptName, platform.CliEnv, platform.BuildEnv, "no")
+	cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "no")
 	osToCmdOutput(cmd)
 	err := cmd.Run()
 	if err != nil {
@@ -202,6 +185,31 @@ func (platform *BasePlatform) CreateEnvironments() {
 	}
 	stopLoader(loading)
 	println(Success + "Created Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
+}
+
+func (platform *BasePlatform) CreatePrebuiltEnvironment() {
+	loading := createLoader("Creating Prebuilt Environment...")
+	cmd := exec.Command("bash", "scripts/linux_prebuilt_env.sh", platform.CliEnv)
+	osToCmdOutput(cmd)
+	err := cmd.Run()
+	if err != nil {
+		cliError("Error creating prebuilt environment: ", err)
+	}
+	stopLoader(loading)
+	println(Success + "Created Prebuilt Environment: " + platform.CliEnv)
+}
+
+func (platform *BasePlatform) InstallPrebuilt() {
+	loading := createLoader("Installing MLC-LLM prebuilt packages...")
+	cmd := exec.Command("bash", "scripts/linux_install_prebuilt.sh", platform.CliEnv)
+	cmd.Dir = "."
+	osToCmdOutput(cmd)
+	err := cmd.Run()
+	stopLoader(loading)
+	if err != nil {
+		cliError("Error installing prebuilt MLC: ", err)
+	}
+	println(Success + "Installed MLC-LLM prebuilt packages")
 }
 
 func (platform *BasePlatform) ClearEnvironments() {
@@ -215,13 +223,7 @@ func (platform *BasePlatform) ClearEnvironments() {
 	}
 	if resp == "Yes" {
 		loading := createLoader(fmt.Sprintf("Removing Environments %s, %s ...", platform.BuildEnv, platform.CliEnv))
-		var scriptName string
-		if runtime.GOOS == "darwin" {
-			scriptName = "scripts/mac_env.sh"
-		} else {
-			scriptName = "scripts/linux_env.sh"
-		}
-		cmd := exec.Command("bash", scriptName, platform.CliEnv, platform.BuildEnv, "yes")
+		cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "yes")
 		osToCmdOutput(cmd)
 		_ = cmd.Run() // Ignore the error if the environments don't exist
 		stopLoader(loading)
@@ -265,37 +267,12 @@ func PromptEnvNames() []string {
 
 func CreatePlatform() Platform {
 	envNames := PromptEnvNames()
-	switch runtime.GOOS {
-	case "darwin":
-		println(Success + "Created Platform: MacOS")
-		return &MacOSPlatform{
-			BasePlatform: BasePlatform{
-				Name:     "MacOS",
-				BuildEnv: envNames[0],
-				CliEnv:   envNames[1],
-			},
-		}
-	case "linux":
-		println(Success + "Created Platform: Linux")
-		return &LinuxPlatform{
-			BasePlatform: BasePlatform{
-				Name:     "Linux",
-				BuildEnv: envNames[0],
-				CliEnv:   envNames[1],
-			},
-		}
-	case "windows":
-		println(Success + "Created Platform: Windows")
-		return &WindowsPlatform{
-			BasePlatform: BasePlatform{
-				Name:     "Windows",
-				BuildEnv: envNames[0],
-				CliEnv:   envNames[1],
-			},
-		}
-	default:
-		cliError(Error+"Error creating platform: "+runtime.GOOS, nil)
-		os.Exit(1)
+	println(Success + "Created Platform: Linux")
+	return &LinuxPlatform{
+		BasePlatform: BasePlatform{
+			Name:     "Linux",
+			BuildEnv: envNames[0],
+			CliEnv:   envNames[1],
+		},
 	}
-	return nil
 }

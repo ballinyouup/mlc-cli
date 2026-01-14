@@ -1,5 +1,5 @@
 /mlc-llm/
-/wheels/*
+/wheels/*.whl
 .env
 /python/LaMP/*
 /python/LaMP

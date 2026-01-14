@@ -9,8 +9,9 @@ TVM_SOURCE_DIR="${2:-}"
 CUDA="${3:-n}"
 ROCM="${4:-n}"
 VULKAN="${5:-n}"
-METAL="${6:-n}"
-OPENCL="${7:-n}"
+OPENCL="${6:-n}"
+USE_PREBUILT_TVM="${7:-n}"
+USE_PREBUILT_MLC="${8:-n}"
 
 # Check if mlc-llm directory exists
 if [ ! -d "mlc-llm" ]; then
@@ -34,14 +35,13 @@ CUDA_COMPUTE_CAP="86"
 
 # Build the answers string with explicit newlines
 # Add extra newlines at the end to handle any additional prompts
-printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
+printf "%s\n%s\n%s\n%s\n%s\n%s\nn\n%s\n%s\n\n\n" \
     "${TVM_SOURCE_DIR}" \
     "${CUDA}" \
     "${CUTLASS}" \
     "${CUBLAS}" \
     "${ROCM}" \
     "${VULKAN}" \
-    "${METAL}" \
     "${OPENCL}" \
     "${FLASHINFER}" | python3 ../cmake/gen_cmake_config.py
 
