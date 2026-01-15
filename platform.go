@@ -99,12 +99,26 @@ func (platform *BasePlatform) RunMLCModel() {
 		cliError("Error getting model source: ", err)
 	}
 
+	devicePrompt := promptui.Select{
+		Label: "Select device",
+		Items: []string{"CUDA", "CPU"},
+	}
+	_, deviceSelection, err := devicePrompt.Run()
+	if err != nil {
+		cliError("Error getting device selection: ", err)
+	}
+
+	deviceArg := "cuda"
+	if deviceSelection == "CPU" {
+		deviceArg = "cpu"
+	}
+
 	var url string
 	var modelName string
 
 	if source == "Local models folder" {
 		// List available models in the models directory
-		entries, err := os.ReadDir("mlc-llm/models")
+		entries, err := os.ReadDir("models")
 		if err != nil {
 			if os.IsNotExist(err) {
 				cliError("Models directory does not exist. Please download a model first.", nil)
@@ -165,7 +179,7 @@ func (platform *BasePlatform) RunMLCModel() {
 		}
 	}
 
-	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName)
+	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName, deviceArg)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

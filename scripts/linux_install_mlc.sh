@@ -12,7 +12,7 @@ if [ ! -d "mlc-llm" ]; then
     exit 1
 fi
 
-conda activate ${LLM_VENV}
+conda activate ${CLI_VENV}
 
 # Clean up any existing library files in the package directory to avoid SameFileError
 rm -f mlc-llm/python/mlc_llm/libmlc_llm.so
