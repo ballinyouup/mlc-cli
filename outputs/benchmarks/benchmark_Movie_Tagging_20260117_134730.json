@@ -1,0 +1,71 @@
+{
+  "vector": {
+    "system_name": "vector",
+    "task": "Movie_Tagging",
+    "num_queries": 20,
+    "k": 10,
+    "retrieval": {
+      "precision@10": 0.0,
+      "recall@10": 0.0,
+      "map": 0.0,
+      "mrr": 0.0,
+      "avg_latency_ms": 0.03522634506225586,
+      "p50_latency_ms": 0.016570091247558594,
+      "p95_latency_ms": 0.11832714080810547,
+      "p99_latency_ms": 0.12303829193115233
+    },
+    "generation": {
+      "accuracy": 0.0
+    },
+    "diversity": {
+      "coverage": 0.0,
+      "avg_intra_list_diversity": 1.0
+    }
+  },
+  "graph": {
+    "system_name": "graph",
+    "task": "Movie_Tagging",
+    "num_queries": 20,
+    "k": 10,
+    "retrieval": {
+      "precision@10": 0.2800000000000001,
+      "recall@10": 0.26568368544600934,
+      "map": 0.9791071428571427,
+      "mrr": 1.0,
+      "avg_latency_ms": 19.929075241088867,
+      "p50_latency_ms": 19.13762092590332,
+      "p95_latency_ms": 22.516810894012455,
+      "p99_latency_ms": 26.616780757904046
+    },
+    "generation": {
+      "accuracy": 0.2
+    },
+    "diversity": {
+      "coverage": 0.034,
+      "avg_intra_list_diversity": 0.29000000000000004
+    }
+  },
+  "hybrid": {
+    "system_name": "hybrid",
+    "task": "Movie_Tagging",
+    "num_queries": 20,
+    "k": 10,
+    "retrieval": {
+      "precision@10": 0.2800000000000001,
+      "recall@10": 0.26568368544600934,
+      "map": 1.0,
+      "mrr": 1.0,
+      "avg_latency_ms": 50.98341703414917,
+      "p50_latency_ms": 20.060181617736816,
+      "p95_latency_ms": 316.9103145599365,
+      "p99_latency_ms": 334.39665794372553
+    },
+    "generation": {
+      "accuracy": 0.2
+    },
+    "diversity": {
+      "coverage": 0.034,
+      "avg_intra_list_diversity": 1.0
+    }
+  }
+}

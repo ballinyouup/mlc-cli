@@ -76,7 +76,13 @@ func (platform *BasePlatform) PromptMLCRepo() {
 
 func (platform *BasePlatform) InstallMLC() {
 	loading := createLoader("Installing MLC to environment...")
-	cmd := exec.Command("bash", "scripts/linux_install_mlc.sh", platform.CliEnv)
+	var scriptName string
+	if runtime.GOOS == "darwin" {
+		scriptName = "scripts/mac_install_mlc.sh"
+	} else {
+		scriptName = "scripts/linux_install_mlc.sh"
+	}
+	cmd := exec.Command("bash", scriptName, platform.CliEnv)
 	cmd.Dir = "."
 	osToCmdOutput(cmd)
 	err := cmd.Run()
@@ -88,33 +94,89 @@ func (platform *BasePlatform) InstallMLC() {
 }
 
 func (platform *BasePlatform) RunMLCModel() {
-	urlPrompt := promptui.Prompt{
-		Label: "Enter Huggingface url",
+	// Ask user to choose between local model or HuggingFace
+	sourcePrompt := promptui.Select{
+		Label: "Select model source",
+		Items: []string{"Local models folder", "HuggingFace"},
 	}
-	url, err := urlPrompt.Run()
+	_, source, err := sourcePrompt.Run()
 	if err != nil {
-		cliError("Error getting url: ", err)
+		cliError("Error getting model source: ", err)
 	}
 
-	modelName := strings.Split(url, "/")[4]
+	var url string
+	var modelName string
 
-	if !strings.Contains(url, "huggingface.co") {
-		cliError("Invalid url. Must be a huggingface url", nil)
-	} else if !strings.Contains(url, "MLC") {
-		continuePrompt := promptui.Select{
-			Label: "Huggingface url does not contain MLC. Continue?",
-			Items: []string{"Yes", "No"},
-		}
-		_, choice, err := continuePrompt.Run()
+	if source == "Local models folder" {
+		// List available models in the models directory
+		entries, err := os.ReadDir("models")
 		if err != nil {
-			cliError("Error getting choice: ", err)
+			if os.IsNotExist(err) {
+				cliError("Models directory does not exist. Please download a model first.", nil)
+			}
+			cliError("Error reading models directory: ", err)
 		}
-		if choice == "No" {
-			os.Exit(0)
+
+		// Filter for directories only
+		var modelDirs []string
+		for _, entry := range entries {
+			if entry.IsDir() {
+				modelDirs = append(modelDirs, entry.Name())
+			}
+		}
+
+		if len(modelDirs) == 0 {
+			cliError("No models found in models directory. Please download a model first.", nil)
+		}
+
+		// Let user select a model
+		modelPrompt := promptui.Select{
+			Label: "Select a model",
+			Items: modelDirs,
+		}
+		_, modelName, err = modelPrompt.Run()
+		if err != nil {
+			cliError("Error selecting model: ", err)
+		}
+
+		// For local models, we'll pass empty URL to indicate it's already downloaded
+		url = ""
+	} else {
+		// HuggingFace download flow
+		urlPrompt := promptui.Prompt{
+			Label: "Enter Huggingface url",
+		}
+		url, err = urlPrompt.Run()
+		if err != nil {
+			cliError("Error getting url: ", err)
+		}
+
+		modelName = strings.Split(url, "/")[4]
+
+		if !strings.Contains(url, "huggingface.co") {
+			cliError("Invalid url. Must be a huggingface url", nil)
+		} else if !strings.Contains(url, "MLC") {
+			continuePrompt := promptui.Select{
+				Label: "Huggingface url does not contain MLC. Continue?",
+				Items: []string{"Yes", "No"},
+			}
+			_, choice, err := continuePrompt.Run()
+			if err != nil {
+				cliError("Error getting choice: ", err)
+			}
+			if choice == "No" {
+				os.Exit(0)
+			}
 		}
 	}
 
-	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName)
+	var scriptName string
+	if runtime.GOOS == "darwin" {
+		scriptName = "scripts/mac_run_model.sh"
+	} else {
+		scriptName = "scripts/linux_run_model.sh"
+	}
+	cmd := exec.Command("bash", scriptName, platform.CliEnv, url, modelName)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -126,7 +188,13 @@ func (platform *BasePlatform) RunMLCModel() {
 
 func (platform *BasePlatform) CreateEnvironments() {
 	loading := createLoader("Creating Environments...")
-	cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "no")
+	var scriptName string
+	if runtime.GOOS == "darwin" {
+		scriptName = "scripts/mac_env.sh"
+	} else {
+		scriptName = "scripts/linux_env.sh"
+	}
+	cmd := exec.Command("bash", scriptName, platform.CliEnv, platform.BuildEnv, "no")
 	osToCmdOutput(cmd)
 	err := cmd.Run()
 	if err != nil {
@@ -147,7 +215,13 @@ func (platform *BasePlatform) ClearEnvironments() {
 	}
 	if resp == "Yes" {
 		loading := createLoader(fmt.Sprintf("Removing Environments %s, %s ...", platform.BuildEnv, platform.CliEnv))
-		cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "yes")
+		var scriptName string
+		if runtime.GOOS == "darwin" {
+			scriptName = "scripts/mac_env.sh"
+		} else {
+			scriptName = "scripts/linux_env.sh"
+		}
+		cmd := exec.Command("bash", scriptName, platform.CliEnv, platform.BuildEnv, "yes")
 		osToCmdOutput(cmd)
 		_ = cmd.Run() // Ignore the error if the environments don't exist
 		stopLoader(loading)
