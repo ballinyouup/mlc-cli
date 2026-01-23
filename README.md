@@ -24,7 +24,7 @@
 ### 1. Installation
 Clone the repository:
 ```bash
-git clone [https://github.com/yourusername/mlc-cli.git](https://github.com/yourusername/mlc-cli.git)
+git clone https://github.com/yourusername/mlc-cli.git
 cd mlc-cli
 ```
 
