@@ -18,8 +18,10 @@ fi
 
 conda activate "${CLI_VENV}"
 
-# install MLC Python package
-cd mlc-llm/python
+# install TVM FFI (required C extension for TVM)
+pip install -e tvm/3rdparty/tvm-ffi
 
+# install TVM Python package (editable install so it finds libs in build/)
+cd tvm/python
 pip install -e .
 cd ../..

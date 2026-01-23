@@ -1,292 +1,440 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/manifoldco/promptui"
 )
 
 type Platform interface {
-	GenerateConfig()
+	BuildTVM(pkg string)
 	BuildMLC()
+	InstallTVM()
 	InstallMLC()
-	InstallPrebuilt()
-	PromptMLCRepo()
-	RunMLCModel()
-	CreateEnvironments()
-	CreatePrebuiltEnvironment()
-	ClearEnvironments()
-	CreateDirectories()
-	BuildAndroid()
+	CreatePlatform()
 }
 type BasePlatform struct {
-	BuildEnv string
-	CliEnv   string
-	Name     string
+	Platform
+	TVMBuildEnv     string
+	MLCBuildEnv     string
+	CliEnv          string
+	OperatingSystem string
+	ModelURL        string
+	ModelName       string
+	Device          string
+	CUDA            string
+	ROCM            string
+	Vulkan          string
+	Metal           string
+	OpenCL          string
+	Cutlass         string
+	CuBLAS          string
+	FlashInfer      string
+	CUDAArch        string
 }
 
-func (platform *BasePlatform) PromptMLCRepo() {
-	prompt := promptui.Prompt{
-		Label:   "Enter MLC repo (press enter for 'https://github.com/mlc-ai/mlc-llm.git')",
-		Default: "https://github.com/mlc-ai/mlc-llm.git",
-	}
-	repo, err := prompt.Run()
-	if err != nil {
-		cliError("Error getting MLC repo: ", err)
-	}
+func (p *BasePlatform) build(pkg string) {
+	var cmd *exec.Cmd
 
-	// Check if the repo folder already exists and if we should clone
-	cloneRepo := false
-	if _, err := os.Stat("mlc-llm"); err == nil {
-		prompt := promptui.Select{
-			Label: "MLC repo already exists. Delete?",
-			Items: []string{"Yes", "No"},
+	if pkg == "mlc" {
+		if p.OperatingSystem == "mac" {
+			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh",
+				p.MLCBuildEnv, p.CUDA, p.ROCM, p.Vulkan, p.Metal, p.OpenCL)
+		} else {
+			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh",
+				p.MLCBuildEnv, p.CUDA, p.Cutlass, p.CuBLAS, p.ROCM, p.Vulkan, p.OpenCL, p.FlashInfer, p.CUDAArch)
 		}
-		_, resp, err := prompt.Run()
-		if err != nil {
-			cliError("Error getting clone MLC repo response: ", err)
+	} else if pkg == "tvm" {
+		if p.OperatingSystem == "mac" {
+			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.TVMBuildEnv)
+		} else {
+			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.CUDAArch)
 		}
-		if resp == "Yes" {
-			err := os.RemoveAll("mlc-llm")
-			if err != nil {
-				cliError("Error deleting MLC repo: ", err)
-			}
-			cloneRepo = true
-		}
-	} else if os.IsNotExist(err) { // Repo doesn't exist
-		cloneRepo = true
 	} else {
-		cliError("Error checking for mlc-llm directory: ", err)
+		cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.TVMBuildEnv)
 	}
 
-	if cloneRepo {
-		loading := createLoader("Cloning MLC repo...")
-		cmd := exec.Command("git", "clone", "--recurse-submodules", repo, "mlc-llm")
-		osToCmdOutput(cmd)
-		err := cmd.Run()
-		if err != nil {
-			cliError("Error cloning MLC repo: ", err)
-		}
-		stopLoader(loading)
-		println(Success + "Cloned MLC repo")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	scriptErr := cmd.Run()
+	if scriptErr != nil {
+		panic(scriptErr)
 	}
 }
 
-func (platform *BasePlatform) InstallMLC() {
-	loading := createLoader("Installing MLC to environment...")
-	cmd := exec.Command("bash", "scripts/linux_install_mlc.sh", platform.CliEnv)
-	cmd.Dir = "."
-	osToCmdOutput(cmd)
-	err := cmd.Run()
-	stopLoader(loading)
-	if err != nil {
-		cliError("Error installing MLC: ", err)
+func (p *BasePlatform) install(pkg string) {
+	var cmd *exec.Cmd
+
+	scriptPath := "scripts/" + p.OperatingSystem + "_install_" + pkg + ".sh"
+
+	switch pkg {
+	case "cuda":
+		cmd = exec.Command("bash", scriptPath)
+	case "mlc":
+		cmd = exec.Command("bash", scriptPath, p.MLCBuildEnv)
+	case "tvm":
+		cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv)
+	case "wheels":
+		cmd = exec.Command("bash", scriptPath, p.CliEnv)
+	default:
+		cmd = exec.Command("bash", scriptPath)
 	}
-	println(Success + "Installed MLC")
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	scriptErr := cmd.Run()
+	if scriptErr != nil {
+		panic(scriptErr)
+	}
 }
 
-func (platform *BasePlatform) RunMLCModel() {
-	// Ask user to choose between local model or HuggingFace
-	sourcePrompt := promptui.Select{
-		Label: "Select model source",
-		Items: []string{"Local models folder", "HuggingFace"},
+func (p *BasePlatform) run() {
+	computePrompt := promptui.Select{
+		Label: "Select compute profile",
+		Items: []string{"Really Low", "Low", "Default", "High"},
 	}
-	_, source, err := sourcePrompt.Run()
+	_, computeProfile, err := computePrompt.Run()
 	if err != nil {
-		cliError("Error getting model source: ", err)
+		panic(err)
 	}
 
-	devicePrompt := promptui.Select{
-		Label: "Select device",
-		Items: []string{"CUDA", "CPU"},
-	}
-	_, deviceSelection, err := devicePrompt.Run()
-	if err != nil {
-		cliError("Error getting device selection: ", err)
-	}
-
-	deviceArg := "cuda"
-	if deviceSelection == "CPU" {
-		deviceArg = "cpu"
+	var overrides string
+	switch computeProfile {
+	case "Really Low":
+		overrides = "context_window_size=10240;prefill_chunk_size=512"
+	case "Low":
+		overrides = "context_window_size=20480;prefill_chunk_size=1024"
+	case "Default":
+		overrides = ""
+	case "High":
+		overrides = "context_window_size=81920;prefill_chunk_size=4096"
 	}
 
-	var url string
-	var modelName string
-
-	if source == "Local models folder" {
-		// List available models in the models directory
-		entries, err := os.ReadDir("models")
-		if err != nil {
-			if os.IsNotExist(err) {
-				cliError("Models directory does not exist. Please download a model first.", nil)
-			}
-			cliError("Error reading models directory: ", err)
-		}
-
-		// Filter for directories only
-		var modelDirs []string
-		for _, entry := range entries {
-			if entry.IsDir() {
-				modelDirs = append(modelDirs, entry.Name())
-			}
-		}
-
-		if len(modelDirs) == 0 {
-			cliError("No models found in models directory. Please download a model first.", nil)
-		}
-
-		// Let user select a model
-		modelPrompt := promptui.Select{
-			Label: "Select a model",
-			Items: modelDirs,
-		}
-		_, modelName, err = modelPrompt.Run()
-		if err != nil {
-			cliError("Error selecting model: ", err)
-		}
-
-		// For local models, we'll pass empty URL to indicate it's already downloaded
-		url = ""
-	} else {
-		// HuggingFace download flow
-		urlPrompt := promptui.Prompt{
-			Label: "Enter Huggingface url",
-		}
-		url, err = urlPrompt.Run()
-		if err != nil {
-			cliError("Error getting url: ", err)
-		}
-
-		modelName = strings.Split(url, "/")[4]
-
-		if !strings.Contains(url, "huggingface.co") {
-			cliError("Invalid url. Must be a huggingface url", nil)
-		} else if !strings.Contains(url, "MLC") {
-			continuePrompt := promptui.Select{
-				Label: "Huggingface url does not contain MLC. Continue?",
-				Items: []string{"Yes", "No"},
-			}
-			_, choice, err := continuePrompt.Run()
-			if err != nil {
-				cliError("Error getting choice: ", err)
-			}
-			if choice == "No" {
-				os.Exit(0)
-			}
-		}
-	}
-
-	cmd := exec.Command("bash", "scripts/linux_run_model.sh", platform.CliEnv, url, modelName, deviceArg)
+	cmd := exec.Command("bash", "scripts/"+p.OperatingSystem+"_run_model.sh", p.CliEnv, p.ModelURL, p.ModelName, p.Device, overrides)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	scriptErr := cmd.Run()
+	if scriptErr != nil {
+		panic(scriptErr)
+	}
+}
+
+func (p *BasePlatform) ConfigureBuildOptions() {
+
+	if p.OperatingSystem == "mac" {
+		p.CUDA = "n"
+		p.ROCM = "n"
+		p.Vulkan = "n"
+		p.Metal = "y"
+		p.OpenCL = "n"
+		p.Cutlass = "n"
+		p.CuBLAS = "n"
+		p.FlashInfer = "n"
+		p.CUDAArch = ""
+
+		metalPrompt := promptui.Select{
+			Label: "Enable Metal support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, metalResult, err := metalPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if metalResult == "Yes" {
+			p.Metal = "y"
+		} else {
+			p.Metal = "n"
+		}
+
+		vulkanPrompt := promptui.Select{
+			Label: "Enable Vulkan support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, vulkanResult, err := vulkanPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if vulkanResult == "Yes" {
+			p.Vulkan = "y"
+		} else {
+			p.Vulkan = "n"
+		}
+	} else {
+		cudaPrompt := promptui.Select{
+			Label: "Enable CUDA support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, cudaResult, err := cudaPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if cudaResult == "Yes" {
+			p.CUDA = "y"
+
+			cudaArchPrompt := promptui.Prompt{
+				Label:   "Enter CUDA compute capability (e.g., 86 for RTX 3060)",
+				Default: "86",
+			}
+			p.CUDAArch, err = cudaArchPrompt.Run()
+			if err != nil {
+				panic(err)
+			}
+
+			cutlassPrompt := promptui.Select{
+				Label: "Enable CUTLASS support?",
+				Items: []string{"Yes", "No"},
+			}
+			_, cutlassResult, err := cutlassPrompt.Run()
+			if err != nil {
+				panic(err)
+			}
+			if cutlassResult == "Yes" {
+				p.Cutlass = "y"
+			} else {
+				p.Cutlass = "n"
+			}
+
+			cublasPrompt := promptui.Select{
+				Label: "Enable cuBLAS support?",
+				Items: []string{"Yes", "No"},
+			}
+			_, cublasResult, err := cublasPrompt.Run()
+			if err != nil {
+				panic(err)
+			}
+			if cublasResult == "Yes" {
+				p.CuBLAS = "y"
+			} else {
+				p.CuBLAS = "n"
+			}
+
+			flashinferPrompt := promptui.Select{
+				Label: "Enable FlashInfer support?",
+				Items: []string{"Yes", "No"},
+			}
+			_, flashinferResult, err := flashinferPrompt.Run()
+			if err != nil {
+				panic(err)
+			}
+			if flashinferResult == "Yes" {
+				p.FlashInfer = "y"
+			} else {
+				p.FlashInfer = "n"
+			}
+		} else {
+			p.CUDA = "n"
+			p.Cutlass = "n"
+			p.CuBLAS = "n"
+			p.FlashInfer = "n"
+			p.CUDAArch = "86"
+		}
+
+		rocmPrompt := promptui.Select{
+			Label: "Enable ROCm support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, rocmResult, err := rocmPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if rocmResult == "Yes" {
+			p.ROCM = "y"
+		} else {
+			p.ROCM = "n"
+		}
+
+		vulkanPrompt := promptui.Select{
+			Label: "Enable Vulkan support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, vulkanResult, err := vulkanPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if vulkanResult == "Yes" {
+			p.Vulkan = "y"
+		} else {
+			p.Vulkan = "n"
+		}
+
+		openclPrompt := promptui.Select{
+			Label: "Enable OpenCL support?",
+			Items: []string{"Yes", "No"},
+		}
+		_, openclResult, err := openclPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+		if openclResult == "Yes" {
+			p.OpenCL = "y"
+		} else {
+			p.OpenCL = "n"
+		}
+
+		p.Metal = "n"
+	}
+}
+
+func (p *BasePlatform) ConfigureModel() {
+	var err error
+
+	modelSourcePrompt := promptui.Select{
+		Label: "Select model source",
+		Items: []string{"Use local model", "Download from Git (HuggingFace)"},
+	}
+	_, modelSource, err := modelSourcePrompt.Run()
 	if err != nil {
-		cliError("Error running MLC: ", err)
+		panic(err)
 	}
-}
 
-func (platform *BasePlatform) CreateEnvironments() {
-	loading := createLoader("Creating Environments...")
-	cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "no")
-	osToCmdOutput(cmd)
-	err := cmd.Run()
+	if modelSource == "Download from Git (HuggingFace)" {
+		modelURLPrompt := promptui.Prompt{
+			Label: "Enter model Git URL",
+		}
+		p.ModelURL, err = modelURLPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		urlParts := []rune(p.ModelURL)
+		lastSlash := -1
+		for i := len(urlParts) - 1; i >= 0; i-- {
+			if urlParts[i] == '/' {
+				lastSlash = i
+				break
+			}
+		}
+		if lastSlash != -1 && lastSlash < len(urlParts)-1 {
+			p.ModelName = string(urlParts[lastSlash+1:])
+		} else {
+			p.ModelName = p.ModelURL
+		}
+	} else {
+		entries, err := os.ReadDir("models")
+		if err != nil || len(entries) == 0 {
+			modelNamePrompt := promptui.Prompt{
+				Label:   "Enter local model name (in models/ directory)",
+				Default: "",
+			}
+			p.ModelName, err = modelNamePrompt.Run()
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			var modelDirs []string
+			for _, entry := range entries {
+				if entry.IsDir() {
+					modelDirs = append(modelDirs, entry.Name())
+				}
+			}
+
+			if len(modelDirs) == 0 {
+				modelNamePrompt := promptui.Prompt{
+					Label:   "Enter local model name (in models/ directory)",
+					Default: "",
+				}
+				p.ModelName, err = modelNamePrompt.Run()
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				modelSelectPrompt := promptui.Select{
+					Label: "Select a model from models/ directory",
+					Items: modelDirs,
+				}
+				_, p.ModelName, err = modelSelectPrompt.Run()
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+		p.ModelURL = ""
+	}
+
+	deviceDefault := "metal"
+	if p.OperatingSystem == "linux" {
+		deviceDefault = "cuda"
+	}
+
+	devicePrompt := promptui.Prompt{
+		Label:   "Enter device type",
+		Default: deviceDefault,
+	}
+	p.Device, err = devicePrompt.Run()
 	if err != nil {
-		cliError("Error creating environments: ", err)
+		panic(err)
 	}
-	stopLoader(loading)
-	println(Success + "Created Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
 }
 
-func (platform *BasePlatform) CreatePrebuiltEnvironment() {
-	loading := createLoader("Creating Prebuilt Environment...")
-	cmd := exec.Command("bash", "scripts/linux_prebuilt_env.sh", platform.CliEnv)
-	osToCmdOutput(cmd)
-	err := cmd.Run()
+// CreatePlatform static function
+func CreatePlatform() BasePlatform {
+	OperatingSystem := ""
+	TvmBuildEnv := ""
+	MLCBuildEnv := ""
+	CliEnv := ""
+	var err error = nil
+
+	// Set Operating System
+	osPrompt := promptui.Select{
+		Label: "Select a MLC build environment",
+		Items: []string{"mac", "linux"},
+	}
+	_, OperatingSystem, err = osPrompt.Run()
 	if err != nil {
-		cliError("Error creating prebuilt environment: ", err)
+		panic(err)
 	}
-	stopLoader(loading)
-	println(Success + "Created Prebuilt Environment: " + platform.CliEnv)
-}
 
-func (platform *BasePlatform) InstallPrebuilt() {
-	loading := createLoader("Installing MLC-LLM prebuilt packages...")
-	cmd := exec.Command("bash", "scripts/linux_install_prebuilt.sh", platform.CliEnv)
-	cmd.Dir = "."
-	osToCmdOutput(cmd)
-	err := cmd.Run()
-	stopLoader(loading)
+	// Set TVM Build Environment Name
+	TvmBuildEnvPrompt := promptui.Prompt{
+		Label:   "Enter a TVM build environment name",
+		Default: "tvm-build-venv",
+	}
+
+	TvmBuildEnv, err = TvmBuildEnvPrompt.Run()
 	if err != nil {
-		cliError("Error installing prebuilt MLC: ", err)
+		panic(err)
 	}
-	println(Success + "Installed MLC-LLM prebuilt packages")
-}
 
-func (platform *BasePlatform) ClearEnvironments() {
-	prompt := promptui.Select{
-		Label: "Clear existing environments?",
-		Items: []string{"Yes", "No"},
+	// Set MLC Build Environment Name
+	MLCBuildEnvPrompt := promptui.Prompt{
+		Label:   "Enter a MLC build environment name",
+		Default: "mlc-build-venv",
 	}
-	_, resp, err := prompt.Run()
+
+	MLCBuildEnv, err = MLCBuildEnvPrompt.Run()
 	if err != nil {
-		cliError("Error getting clear environments response: ", err)
-	}
-	if resp == "Yes" {
-		loading := createLoader(fmt.Sprintf("Removing Environments %s, %s ...", platform.BuildEnv, platform.CliEnv))
-		cmd := exec.Command("bash", "scripts/linux_env.sh", platform.CliEnv, platform.BuildEnv, "yes")
-		osToCmdOutput(cmd)
-		_ = cmd.Run() // Ignore the error if the environments don't exist
-		stopLoader(loading)
-	}
-	println(Success + "Cleared Environments: " + platform.BuildEnv + ", " + platform.CliEnv)
-}
-
-func (platform *BasePlatform) CreateDirectories() {
-	if err := os.MkdirAll("mlc-llm/build", 0755); err != nil {
-		cliError("Error creating build directory: ", err)
+		panic(err)
 	}
 
-	if err := os.MkdirAll("models", 0755); err != nil {
-		cliError("Error creating models directory: ", err)
-	}
-}
-
-func PromptEnvNames() []string {
-	buildPrompt := promptui.Prompt{
-		Label:   "Enter build environment name (press enter for 'mlc-llm-venv')",
-		Default: "mlc-llm-venv",
-	}
-	buildResult, buildErr := buildPrompt.Run()
-
-	if buildErr != nil {
-		cliError("Error getting build environment name: ", buildErr)
-	}
-
-	cliPrompt := promptui.Prompt{
-		Label:   "Enter cli environment name (press enter for 'mlc-cli-venv')",
+	// Set CLI Environment Name
+	CliEnvPrompt := promptui.Prompt{
+		Label:   "Enter a CLI environment name",
 		Default: "mlc-cli-venv",
 	}
 
-	cliResult, cliErr := cliPrompt.Run()
-	if cliErr != nil {
-		cliError("Error getting cli environment name: ", cliErr)
+	CliEnv, err = CliEnvPrompt.Run()
+	if err != nil {
+		panic(err)
 	}
 
-	return []string{buildResult, cliResult}
-}
-
-func CreatePlatform() Platform {
-	envNames := PromptEnvNames()
-	println(Success + "Created Platform: Linux")
-	return &LinuxPlatform{
-		BasePlatform: BasePlatform{
-			Name:     "Linux",
-			BuildEnv: envNames[0],
-			CliEnv:   envNames[1],
-		},
+	return BasePlatform{
+		OperatingSystem: OperatingSystem,
+		TVMBuildEnv:     TvmBuildEnv,
+		MLCBuildEnv:     MLCBuildEnv,
+		CliEnv:          CliEnv,
+		ModelURL:        "",
+		ModelName:       "",
+		Device:          "",
+		CUDA:            "",
+		ROCM:            "",
+		Vulkan:          "",
+		Metal:           "",
+		OpenCL:          "",
+		Cutlass:         "",
+		CuBLAS:          "",
+		FlashInfer:      "",
+		CUDAArch:        "",
 	}
 }

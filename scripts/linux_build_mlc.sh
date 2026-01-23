@@ -3,10 +3,33 @@ set -e  # Exit on error
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# Accept build environment name, CUDA flag, and CUDA architecture as arguments
+# Args
 BUILD_VENV="${1:-mlc-llm-venv}"
-USE_CUDA="${2:-auto}"
-CUDA_ARCH="${3:-86}"
+CUDA="${2:-y}"
+CUTLASS="${3:-n}"
+CUBLAS="${4:-n}"
+ROCM="${5:-n}"
+VULKAN="${6:-n}"
+OPENCL="${7:-n}"
+FLASHINFER="${8:-n}"
+CUDA_ARCH="${9:-86}"
+
+# Variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WHEELS_DIR="${REPO_ROOT}/wheels"
+TVM_SOURCE_DIR="${REPO_ROOT}/tvm"
+
+echo "Creating build environment: ${BUILD_VENV}"
+conda create -n ${BUILD_VENV} -c conda-forge --yes \
+      "cmake>=3.24" \
+      rust \
+      git \
+      python=3.13 \
+      pip \
+      git-lfs
+
+echo "${BUILD_VENV} environment created successfully"
 
 # Check if mlc-llm directory exists
 if [ ! -d "mlc-llm" ]; then
@@ -24,21 +47,18 @@ fi
 mkdir -p mlc-llm/build
 cd mlc-llm/build
 
-# Determine if we should use CUDA
-BUILD_WITH_CUDA=false
-if [[ "$USE_CUDA" == "y" ]]; then
-    if command -v nvcc &> /dev/null; then
-        BUILD_WITH_CUDA=true
-    else
-        echo "Warning: CUDA requested but nvcc not found. Building with CPU-only support..."
-    fi
-elif [[ "$USE_CUDA" == "auto" ]]; then
-    if command -v nvcc &> /dev/null; then
-        BUILD_WITH_CUDA=true
-    fi
-fi
+# Generate CMake config
+printf "%s\n%s\n%s\n%s\n%s\n%s\nn\n%s\n%s\n\n\n" \
+    "${TVM_SOURCE_DIR}" \
+    "${CUDA}" \
+    "${CUTLASS}" \
+    "${CUBLAS}" \
+    "${ROCM}" \
+    "${VULKAN}" \
+    "${OPENCL}" \
+    "${FLASHINFER}" | python3 ../cmake/gen_cmake_config.py
 
-if [[ "$BUILD_WITH_CUDA" == true ]]; then
+if [[ "$CUDA" == true ]]; then
     echo "Configuring with CUDA support..."
     # Set CUDA environment variables only when CUDA is available
     export PATH=/usr/local/cuda/bin:$PATH
@@ -56,5 +76,15 @@ else
 fi
 
 cmake --build . --parallel ${NCORES}
+
+# Build wheel and copy to wheels directory
+mkdir -p "${WHEELS_DIR}"
+
+cd python
+pip install build
+python -m build --wheel --outdir "${WHEELS_DIR}"
+cd ..
+
+echo "MLC-LLM wheel created in ${WHEELS_DIR}"
 
 conda deactivate
