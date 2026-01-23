@@ -3,6 +3,8 @@ The goal of this project is to make it easier to work with MLC LLM repo
 for tasks like building from source with source code modifications, 
 compiling models to MLC format, and running the models with custom model configs.
 
+[![mlc-cli-tutorial](https://vumbnail.com/1157423379.jpg)](https://vimeo.com/1157423379)
+
 ## Getting Started
 
 ```bash
@@ -14,10 +16,8 @@ compiling models to MLC format, and running the models with custom model configs
 - Mac
 
 ### Steps:
-
-1. Install Conda
-2. Install CUDA (Use ./linux_cuda.sh)
-3. Select Build and follow all the prompts
+1. Select Build and follow all the prompts
+2. Select Run to run the mlc_llm chat
 
 #### Model Examples
    1. https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC
