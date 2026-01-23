@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,15 +9,7 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-type Platform interface {
-	BuildTVM(pkg string)
-	BuildMLC()
-	InstallTVM()
-	InstallMLC()
-	CreatePlatform()
-}
-type BasePlatform struct {
-	Platform
+type Platform struct {
 	TVMBuildEnv     string
 	MLCBuildEnv     string
 	CliEnv          string
@@ -35,7 +28,7 @@ type BasePlatform struct {
 	CUDAArch        string
 }
 
-func (p *BasePlatform) build(pkg string) {
+func (p *Platform) build(pkg string) {
 	var cmd *exec.Cmd
 
 	if pkg == "mlc" {
@@ -64,7 +57,7 @@ func (p *BasePlatform) build(pkg string) {
 	}
 }
 
-func (p *BasePlatform) install(pkg string) {
+func (p *Platform) install(pkg string) {
 	var cmd *exec.Cmd
 
 	scriptPath := "scripts/" + p.OperatingSystem + "_install_" + pkg + ".sh"
@@ -93,14 +86,37 @@ func (p *BasePlatform) install(pkg string) {
 	}
 }
 
-func (p *BasePlatform) run() {
+func handlePromptError(err error) {
+	if errors.Is(err, promptui.ErrInterrupt) {
+		fmt.Println("\nExiting...")
+		os.Exit(0)
+	}
+	panic(err)
+}
+
+func promptYesNo(label string) string {
+	prompt := promptui.Select{
+		Label: label,
+		Items: []string{"Yes", "No"},
+	}
+	_, result, err := prompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	if result == "Yes" {
+		return "y"
+	}
+	return "n"
+}
+
+func (p *Platform) run() {
 	computePrompt := promptui.Select{
 		Label: "Select compute profile",
 		Items: []string{"Really Low", "Low", "Default", "High"},
 	}
 	_, computeProfile, err := computePrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
 
 	var overrides string
@@ -125,8 +141,7 @@ func (p *BasePlatform) run() {
 	}
 }
 
-func (p *BasePlatform) ConfigureBuildOptions() {
-
+func (p *Platform) ConfigureBuildOptions() {
 	if p.OperatingSystem == "mac" {
 		p.CUDA = "n"
 		p.ROCM = "n"
@@ -138,95 +153,25 @@ func (p *BasePlatform) ConfigureBuildOptions() {
 		p.FlashInfer = "n"
 		p.CUDAArch = ""
 
-		metalPrompt := promptui.Select{
-			Label: "Enable Metal support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, metalResult, err := metalPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if metalResult == "Yes" {
-			p.Metal = "y"
-		} else {
-			p.Metal = "n"
-		}
-
-		vulkanPrompt := promptui.Select{
-			Label: "Enable Vulkan support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, vulkanResult, err := vulkanPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if vulkanResult == "Yes" {
-			p.Vulkan = "y"
-		} else {
-			p.Vulkan = "n"
-		}
+		p.Metal = promptYesNo("Enable Metal support?")
+		p.Vulkan = promptYesNo("Enable Vulkan support?")
 	} else {
-		cudaPrompt := promptui.Select{
-			Label: "Enable CUDA support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, cudaResult, err := cudaPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if cudaResult == "Yes" {
-			p.CUDA = "y"
+		p.CUDA = promptYesNo("Enable CUDA support?")
 
+		if p.CUDA == "y" {
 			cudaArchPrompt := promptui.Prompt{
 				Label:   "Enter CUDA compute capability (e.g., 86 for RTX 3060)",
 				Default: "86",
 			}
+			var err error
 			p.CUDAArch, err = cudaArchPrompt.Run()
 			if err != nil {
-				panic(err)
+				handlePromptError(err)
 			}
 
-			cutlassPrompt := promptui.Select{
-				Label: "Enable CUTLASS support?",
-				Items: []string{"Yes", "No"},
-			}
-			_, cutlassResult, err := cutlassPrompt.Run()
-			if err != nil {
-				panic(err)
-			}
-			if cutlassResult == "Yes" {
-				p.Cutlass = "y"
-			} else {
-				p.Cutlass = "n"
-			}
-
-			cublasPrompt := promptui.Select{
-				Label: "Enable cuBLAS support?",
-				Items: []string{"Yes", "No"},
-			}
-			_, cublasResult, err := cublasPrompt.Run()
-			if err != nil {
-				panic(err)
-			}
-			if cublasResult == "Yes" {
-				p.CuBLAS = "y"
-			} else {
-				p.CuBLAS = "n"
-			}
-
-			flashinferPrompt := promptui.Select{
-				Label: "Enable FlashInfer support?",
-				Items: []string{"Yes", "No"},
-			}
-			_, flashinferResult, err := flashinferPrompt.Run()
-			if err != nil {
-				panic(err)
-			}
-			if flashinferResult == "Yes" {
-				p.FlashInfer = "y"
-			} else {
-				p.FlashInfer = "n"
-			}
+			p.Cutlass = promptYesNo("Enable CUTLASS support?")
+			p.CuBLAS = promptYesNo("Enable cuBLAS support?")
+			p.FlashInfer = promptYesNo("Enable FlashInfer support?")
 		} else {
 			p.CUDA = "n"
 			p.Cutlass = "n"
@@ -235,128 +180,95 @@ func (p *BasePlatform) ConfigureBuildOptions() {
 			p.CUDAArch = "86"
 		}
 
-		rocmPrompt := promptui.Select{
-			Label: "Enable ROCm support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, rocmResult, err := rocmPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if rocmResult == "Yes" {
-			p.ROCM = "y"
-		} else {
-			p.ROCM = "n"
-		}
-
-		vulkanPrompt := promptui.Select{
-			Label: "Enable Vulkan support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, vulkanResult, err := vulkanPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if vulkanResult == "Yes" {
-			p.Vulkan = "y"
-		} else {
-			p.Vulkan = "n"
-		}
-
-		openclPrompt := promptui.Select{
-			Label: "Enable OpenCL support?",
-			Items: []string{"Yes", "No"},
-		}
-		_, openclResult, err := openclPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
-		if openclResult == "Yes" {
-			p.OpenCL = "y"
-		} else {
-			p.OpenCL = "n"
-		}
-
+		p.ROCM = promptYesNo("Enable ROCm support?")
+		p.Vulkan = promptYesNo("Enable Vulkan support?")
+		p.OpenCL = promptYesNo("Enable OpenCL support?")
 		p.Metal = "n"
 	}
 }
 
-func (p *BasePlatform) ConfigureModel() {
-	var err error
-
-	modelSourcePrompt := promptui.Select{
-		Label: "Select model source",
-		Items: []string{"Use local model", "Download from Git (HuggingFace)"},
+func extractModelNameFromURL(url string) string {
+	urlParts := []rune(url)
+	lastSlash := -1
+	for i := len(urlParts) - 1; i >= 0; i-- {
+		if urlParts[i] == '/' {
+			lastSlash = i
+			break
+		}
 	}
-	_, modelSource, err := modelSourcePrompt.Run()
+	if lastSlash != -1 && lastSlash < len(urlParts)-1 {
+		return string(urlParts[lastSlash+1:])
+	}
+	return url
+}
+
+func promptModelURL() string {
+	modelURLPrompt := promptui.Prompt{
+		Label: "Enter model Git URL",
+	}
+	url, err := modelURLPrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
+	}
+	return url
+}
+
+func getLocalModelDirectories() []string {
+	entries, err := os.ReadDir("models")
+	if err != nil {
+		return nil
 	}
 
-	if modelSource == "Download from Git (HuggingFace)" {
-		modelURLPrompt := promptui.Prompt{
-			Label: "Enter model Git URL",
+	var modelDirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			modelDirs = append(modelDirs, entry.Name())
 		}
-		p.ModelURL, err = modelURLPrompt.Run()
-		if err != nil {
-			panic(err)
-		}
+	}
+	return modelDirs
+}
 
-		urlParts := []rune(p.ModelURL)
-		lastSlash := -1
-		for i := len(urlParts) - 1; i >= 0; i-- {
-			if urlParts[i] == '/' {
-				lastSlash = i
-				break
-			}
-		}
-		if lastSlash != -1 && lastSlash < len(urlParts)-1 {
-			p.ModelName = string(urlParts[lastSlash+1:])
-		} else {
-			p.ModelName = p.ModelURL
-		}
-	} else {
-		entries, err := os.ReadDir("models")
-		if err != nil || len(entries) == 0 {
-			modelNamePrompt := promptui.Prompt{
-				Label:   "Enter local model name (in models/ directory)",
-				Default: "",
-			}
-			p.ModelName, err = modelNamePrompt.Run()
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			var modelDirs []string
-			for _, entry := range entries {
-				if entry.IsDir() {
-					modelDirs = append(modelDirs, entry.Name())
-				}
-			}
+func promptLocalModelName() string {
+	modelNamePrompt := promptui.Prompt{
+		Label:   "Enter local model name (in models/ directory)",
+		Default: "",
+	}
+	name, err := modelNamePrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	return name
+}
 
-			if len(modelDirs) == 0 {
-				modelNamePrompt := promptui.Prompt{
-					Label:   "Enter local model name (in models/ directory)",
-					Default: "",
-				}
-				p.ModelName, err = modelNamePrompt.Run()
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				modelSelectPrompt := promptui.Select{
-					Label: "Select a model from models/ directory",
-					Items: modelDirs,
-				}
-				_, p.ModelName, err = modelSelectPrompt.Run()
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-		p.ModelURL = ""
+func selectLocalModel() string {
+	modelDirs := getLocalModelDirectories()
+
+	if len(modelDirs) == 0 {
+		return promptLocalModelName()
 	}
 
+	modelSelectPrompt := promptui.Select{
+		Label: "Select a model from models/ directory",
+		Items: modelDirs,
+	}
+	_, modelName, err := modelSelectPrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	return modelName
+}
+
+func (p *Platform) configureRemoteModel() {
+	p.ModelURL = promptModelURL()
+	p.ModelName = extractModelNameFromURL(p.ModelURL)
+}
+
+func (p *Platform) configureLocalModel() {
+	p.ModelName = selectLocalModel()
+	p.ModelURL = ""
+}
+
+func (p *Platform) configureDevice() {
 	deviceDefault := "metal"
 	if p.OperatingSystem == "linux" {
 		deviceDefault = "cuda"
@@ -366,10 +278,30 @@ func (p *BasePlatform) ConfigureModel() {
 		Label:   "Enter device type",
 		Default: deviceDefault,
 	}
+	var err error
 	p.Device, err = devicePrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
+}
+
+func (p *Platform) ConfigureModel() {
+	modelSourcePrompt := promptui.Select{
+		Label: "Select model source",
+		Items: []string{"Use local model", "Download from Git (HuggingFace)"},
+	}
+	_, modelSource, err := modelSourcePrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+
+	if modelSource == "Download from Git (HuggingFace)" {
+		p.configureRemoteModel()
+	} else {
+		p.configureLocalModel()
+	}
+
+	p.configureDevice()
 }
 
 func CheckAndInstallConda(operatingSystem string) {
@@ -383,7 +315,7 @@ func CheckAndInstallConda(operatingSystem string) {
 		}
 		_, result, err := installPrompt.Run()
 		if err != nil {
-			panic(err)
+			handlePromptError(err)
 		}
 
 		if result == "Yes" {
@@ -407,7 +339,7 @@ func CheckCudaInstalled() bool {
 }
 
 // CreatePlatform static function
-func CreatePlatform() BasePlatform {
+func CreatePlatform() Platform {
 	OperatingSystem := ""
 	TvmBuildEnv := ""
 	MLCBuildEnv := ""
@@ -421,7 +353,7 @@ func CreatePlatform() BasePlatform {
 	}
 	_, OperatingSystem, err = osPrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
 
 	// Check and install conda if needed
@@ -435,7 +367,7 @@ func CreatePlatform() BasePlatform {
 
 	TvmBuildEnv, err = TvmBuildEnvPrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
 
 	// Set MLC Build Environment Name
@@ -446,7 +378,7 @@ func CreatePlatform() BasePlatform {
 
 	MLCBuildEnv, err = MLCBuildEnvPrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
 
 	// Set CLI Environment Name
@@ -457,10 +389,10 @@ func CreatePlatform() BasePlatform {
 
 	CliEnv, err = CliEnvPrompt.Run()
 	if err != nil {
-		panic(err)
+		handlePromptError(err)
 	}
 
-	return BasePlatform{
+	return Platform{
 		OperatingSystem: OperatingSystem,
 		TVMBuildEnv:     TvmBuildEnv,
 		MLCBuildEnv:     MLCBuildEnv,

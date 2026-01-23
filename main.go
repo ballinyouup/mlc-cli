@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -29,6 +30,10 @@ func main() {
 	}
 	_, selection, err := prompt.Run()
 	if err != nil {
+		if errors.Is(err, promptui.ErrInterrupt) {
+			fmt.Println("\nExiting...")
+			os.Exit(0)
+		}
 		cliError("Error getting selection: ", err)
 	}
 	if selection == "Build" {
@@ -47,7 +52,7 @@ func main() {
 	}
 }
 
-func promptInstall(platform BasePlatform, pkg string) {
+func promptInstall(platform Platform, pkg string) {
 	prompt := promptui.Select{
 		Label: "Install " + pkg + "?",
 		Items: []string{"Yes", "No"},
@@ -55,6 +60,10 @@ func promptInstall(platform BasePlatform, pkg string) {
 
 	_, result, err := prompt.Run()
 	if err != nil {
+		if errors.Is(err, promptui.ErrInterrupt) {
+			fmt.Println("\nExiting...")
+			os.Exit(0)
+		}
 		cliError("Error getting selection: ", err)
 	}
 	if result == "Yes" {
@@ -62,7 +71,7 @@ func promptInstall(platform BasePlatform, pkg string) {
 	}
 }
 
-func promptBuild(platform BasePlatform, pkg string) {
+func promptBuild(platform Platform, pkg string) {
 	prompt := promptui.Select{
 		Label: "Build " + pkg + " from source?",
 		Items: []string{"Yes", "No"},
@@ -70,6 +79,10 @@ func promptBuild(platform BasePlatform, pkg string) {
 
 	_, result, err := prompt.Run()
 	if err != nil {
+		if errors.Is(err, promptui.ErrInterrupt) {
+			fmt.Println("\nExiting...")
+			os.Exit(0)
+		}
 		cliError("Error getting selection: ", err)
 	}
 	if result == "Yes" {
