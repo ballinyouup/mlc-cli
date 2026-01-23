@@ -1,6 +1,4 @@
-# mlc-cli: The Missing Build Tool for MLC-LLM
-
-> **Simple automated builds for MLC-LLM.**
+# mlc-cli: Build MLC-LLM & TVM from source, Run, and Deploy.
 
 
 [![mlc-cli-tutorial](https://vumbnail.com/1157423379.jpg)](https://vimeo.com/1157423379)
