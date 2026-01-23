@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -70,6 +71,13 @@ func (p *BasePlatform) install(pkg string) {
 
 	switch pkg {
 	case "cuda":
+		if CheckCudaInstalled() {
+			fmt.Println(Success + "CUDA is already installed, skipping installation.")
+			return
+		} else if p.OperatingSystem != "linux" {
+			fmt.Println("CUDA installation is only supported on Linux.")
+			return
+		}
 		cmd = exec.Command("bash", scriptPath)
 	case "mlc":
 		cmd = exec.Command("bash", scriptPath, p.MLCBuildEnv)
@@ -368,6 +376,40 @@ func (p *BasePlatform) ConfigureModel() {
 	}
 }
 
+func CheckAndInstallConda(operatingSystem string) {
+	cmd := exec.Command("conda", "--version")
+	err := cmd.Run()
+
+	if err != nil {
+		installPrompt := promptui.Select{
+			Label: "Conda is not installed. Would you like to install it?",
+			Items: []string{"Yes", "No"},
+		}
+		_, result, err := installPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		if result == "Yes" {
+			installCmd := exec.Command("bash", "scripts/"+operatingSystem+"_install_conda.sh")
+			installCmd.Stdout = os.Stdout
+			installCmd.Stderr = os.Stderr
+			installErr := installCmd.Run()
+			if installErr != nil {
+				panic(installErr)
+			}
+		} else {
+			panic("Conda is required to proceed. Please install conda and try again.")
+		}
+	}
+}
+
+func CheckCudaInstalled() bool {
+	cmd := exec.Command("nvcc", "--version")
+	err := cmd.Run()
+	return err == nil
+}
+
 // CreatePlatform static function
 func CreatePlatform() BasePlatform {
 	OperatingSystem := ""
@@ -385,6 +427,9 @@ func CreatePlatform() BasePlatform {
 	if err != nil {
 		panic(err)
 	}
+
+	// Check and install conda if needed
+	CheckAndInstallConda(OperatingSystem)
 
 	// Set TVM Build Environment Name
 	TvmBuildEnvPrompt := promptui.Prompt{
