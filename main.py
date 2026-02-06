@@ -10,7 +10,7 @@ if tvm_build_path.exists():
 from mlc_llm import MLCEngine
 
 # Create engine
-model = "./models/Qwen3-1.7B-q4f16_1-MLC"
+model = "./models/Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC"
 engine = MLCEngine(model, device="metal")
 
 # Run chat completion in OpenAI API.

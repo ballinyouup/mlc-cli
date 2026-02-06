@@ -1,5 +1,7 @@
 /mlc-llm/
+/models/
 /wheels/*.whl
 .env
 /python/LaMP/*
 /python/LaMP
+.idea

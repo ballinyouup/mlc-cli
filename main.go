@@ -38,6 +38,7 @@ func main() {
 	}
 	if selection == "Build" {
 		platform := CreatePlatform()
+		platform.ConfigureGitHubRepo()
 		platform.ConfigureBuildOptions()
 		promptInstall(platform, "cuda")
 		promptBuild(platform, "tvm")

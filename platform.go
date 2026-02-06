@@ -14,6 +14,7 @@ type Platform struct {
 	MLCBuildEnv     string
 	CliEnv          string
 	OperatingSystem string
+	GitHubRepo      string
 	ModelURL        string
 	ModelName       string
 	Device          string
@@ -138,6 +139,18 @@ func (p *Platform) run() {
 	scriptErr := cmd.Run()
 	if scriptErr != nil {
 		panic(scriptErr)
+	}
+}
+
+func (p *Platform) ConfigureGitHubRepo() {
+	gitHubRepoPrompt := promptui.Prompt{
+		Label:   "Enter GitHub repository URL",
+		Default: "https://github.com/mlc-ai/mlc-llm",
+	}
+	var err error
+	p.GitHubRepo, err = gitHubRepoPrompt.Run()
+	if err != nil {
+		handlePromptError(err)
 	}
 }
 
@@ -397,6 +410,7 @@ func CreatePlatform() Platform {
 		TVMBuildEnv:     TvmBuildEnv,
 		MLCBuildEnv:     MLCBuildEnv,
 		CliEnv:          CliEnv,
+		GitHubRepo:      "",
 		ModelURL:        "",
 		ModelName:       "",
 		Device:          "",
