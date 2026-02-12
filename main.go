@@ -111,12 +111,15 @@ func promptQuantizeModel(platform Platform) {
 		cliError("Selection failed", err)
 	}
 
-	fmt.Printf("\n🚀 Starting Quantization [%s] using env [%s]...\n", quantCode, platform.CliEnv)
+	platform.configureDevice()
+
+	fmt.Printf("\n🚀 Starting Quantization [%s] using env [%s] on device [%s]...\n", quantCode, platform.CliEnv, platform.Device)
 
 	cmd := exec.Command("conda", "run", "--no-capture-output", "-n", platform.CliEnv,
 		"python", "-m", "mlc_llm", "convert_weight",
 		modelPath,
 		"--quantization", quantCode,
+		"--device", platform.Device,
 		"-o", outputDir)
 
 	cmd.Stdout = os.Stdout
