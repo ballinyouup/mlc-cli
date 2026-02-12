@@ -351,7 +351,6 @@ func CheckCudaInstalled() bool {
 	return err == nil
 }
 
-// CreatePlatform static function
 func CreatePlatform() Platform {
 	OperatingSystem := ""
 	TvmBuildEnv := ""
@@ -359,7 +358,6 @@ func CreatePlatform() Platform {
 	CliEnv := ""
 	var err error = nil
 
-	// Set Operating System
 	osPrompt := promptui.Select{
 		Label: "Select a MLC build environment",
 		Items: []string{"mac", "linux", "windows"},
@@ -369,10 +367,8 @@ func CreatePlatform() Platform {
 		handlePromptError(err)
 	}
 
-	// Check and install conda if needed
 	CheckAndInstallConda(OperatingSystem)
 
-	// Set TVM Build Environment Name
 	TvmBuildEnvPrompt := promptui.Prompt{
 		Label:   "Enter a TVM build environment name",
 		Default: "tvm-build-venv",
@@ -383,7 +379,6 @@ func CreatePlatform() Platform {
 		handlePromptError(err)
 	}
 
-	// Set MLC Build Environment Name
 	MLCBuildEnvPrompt := promptui.Prompt{
 		Label:   "Enter a MLC build environment name",
 		Default: "mlc-build-venv",
@@ -394,7 +389,6 @@ func CreatePlatform() Platform {
 		handlePromptError(err)
 	}
 
-	// Set CLI Environment Name
 	CliEnvPrompt := promptui.Prompt{
 		Label:   "Enter a CLI environment name",
 		Default: "mlc-cli-venv",
