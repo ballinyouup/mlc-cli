@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec" 
 
 	"github.com/manifoldco/promptui"
 )
@@ -26,7 +27,7 @@ func main() {
 
 	prompt := promptui.Select{
 		Label: "Options",
-		Items: []string{"Build", "Run", "Deploy"},
+		Items: []string{"Build", "Run", "Quantize Model", "Deploy"},
 	}
 	_, selection, err := prompt.Run()
 	if err != nil {
@@ -36,6 +37,7 @@ func main() {
 		}
 		cliError("Error getting selection: ", err)
 	}
+
 	if selection == "Build" {
 		platform := CreatePlatform()
 		platform.ConfigureGitHubRepo()
@@ -45,13 +47,93 @@ func main() {
 		promptBuild(platform, "mlc")
 		promptInstall(platform, "tvm")
 		promptInstall(platform, "mlc")
+
 	} else if selection == "Run" {
 		platform := CreatePlatform()
 		platform.ConfigureModel()
 		platform.run()
+
+	} else if selection == "Quantize Model" {
+		promptQuantizeModel()
+
 	} else if selection == "Deploy" {
 	}
 }
+
+func promptQuantizeModel() {
+	promptPath := promptui.Prompt{
+		Label: "Enter Hugging Face Model Path (or local path)",
+	}
+	modelPath, err := promptPath.Run()
+	if err != nil {
+		cliError("Input failed", err)
+	}
+
+	promptOut := promptui.Prompt{
+		Label:   "Enter Output Directory",
+		Default: "dist/model-output",
+	}
+	outputDir, err := promptOut.Run()
+	if err != nil {
+		cliError("Input failed", err)
+	}
+
+	promptQuant := promptui.Select{
+		Label: "Select Quantization Level",
+		Items: []string{
+			"q4f16_1 (Standard - 4-bit, Balanced)",
+			"q3f16_1 (Small - 3-bit, Low VRAM)",
+			"q0f16   (None - 16-bit, High Quality)",
+		},
+	}
+	_, result, err := promptQuant.Run()
+	if err != nil {
+		cliError("Selection failed", err)
+	}
+
+	var quantCode string
+	switch result {
+	case "q3f16_1 (Small - 3-bit, Low VRAM)":
+		quantCode = "q3f16_1"
+	case "q0f16   (None - 16-bit, High Quality)":
+		quantCode = "q0f16"
+	default:
+		quantCode = "q4f16_1"
+	}
+
+	fmt.Printf("\n🚀 Starting Quantization [%s]...\n", quantCode)
+
+
+cmd := exec.Command("conda", "run", "--no-capture-output", "-n", "mlc-env", 
+    "python", "-m", "mlc_llm", "convert_weight", 
+    modelPath, 
+    "--quantization", quantCode, 
+    "-o", outputDir)
+
+cmd.Stdout = os.Stdout
+cmd.Stderr = os.Stderr
+
+if err := cmd.Run(); err != nil {
+    cliError("Quantization failed: ", err)
+}
+
+fmt.Println("\n📄 Generating config...")
+cmdConfig := exec.Command("conda", "run", "--no-capture-output", "-n", "mlc-env", 
+    "python", "-m", "mlc_llm", "gen_config", modelPath, 
+    "--quantization", quantCode, 
+    "--conv-template", "llama-3", 
+    "-o", outputDir)
+
+cmdConfig.Stdout = os.Stdout
+cmdConfig.Stderr = os.Stderr
+
+if err := cmdConfig.Run(); err != nil {
+    cliError("Config generation failed: ", err)
+}
+
+fmt.Println("\n" + Success + "Quantization Complete! Model saved to " + outputDir)
+}
+
 
 func promptInstall(platform Platform, pkg string) {
 	prompt := promptui.Select{
