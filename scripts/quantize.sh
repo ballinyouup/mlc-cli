@@ -1,3 +1,4 @@
+set -e 
 
 ENV_NAME="${1:-mlc-cli-venv}"
 MODEL_PATH="$2"
@@ -34,17 +35,29 @@ fi
 
 echo "🚀 Starting Quantization: $QUANT_TYPE..."
 
-CONDA_RUN="conda run --no-capture-output -n $ENV_NAME python -m mlc_llm"
+
+CONDA_BASE=$(conda info --base)
+if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
+    source "$CONDA_BASE/etc/profile.d/conda.sh"
+else
+    echo "⚠️  Could not find conda.sh! Assuming conda is already in PATH."
+fi
+
+echo "🔌 Activating environment: $ENV_NAME"
+conda activate "$ENV_NAME"
 
 echo "📦 Compressing weights..."
-$CONDA_RUN convert_weight "$MODEL_PATH" \
+python -m mlc_llm convert_weight "$MODEL_PATH" \
     --quantization "$QUANT_TYPE" \
     -o "$OUTPUT_DIR"
 
 echo "📄 Generating chat config..."
-$CONDA_RUN gen_config "$MODEL_PATH" \
+python -m mlc_llm gen_config "$MODEL_PATH" \
     --quantization "$QUANT_TYPE" \
     --conv-template "$CONV_TEMPLATE" \
     -o "$OUTPUT_DIR"
+
+echo "🔌 Deactivating environment..."
+conda deactivate
 
 echo "✅ Quantization complete! Model saved to $OUTPUT_DIR"
