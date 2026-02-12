@@ -362,7 +362,7 @@ func CreatePlatform() Platform {
 	// Set Operating System
 	osPrompt := promptui.Select{
 		Label: "Select a MLC build environment",
-		Items: []string{"mac", "linux"},
+		Items: []string{"mac", "linux", "windows"},
 	}
 	_, OperatingSystem, err = osPrompt.Run()
 	if err != nil {

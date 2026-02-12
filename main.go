@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec" 
+	"os/exec"
 
 	"github.com/manifoldco/promptui"
 )
@@ -54,13 +54,14 @@ func main() {
 		platform.run()
 
 	} else if selection == "Quantize Model" {
-		promptQuantizeModel()
+		platform := CreatePlatform()
+		promptQuantizeModel(platform)
 
 	} else if selection == "Deploy" {
 	}
 }
 
-func promptQuantizeModel() {
+func promptQuantizeModel(platform Platform) {
 	promptPath := promptui.Prompt{
 		Label: "Enter Hugging Face Model Path (or local path)",
 	}
@@ -101,39 +102,46 @@ func promptQuantizeModel() {
 		quantCode = "q4f16_1"
 	}
 
-	fmt.Printf("\n🚀 Starting Quantization [%s]...\n", quantCode)
+	promptTemplate := promptui.Select{
+		Label: "Select Conversation Template",
+		Items: []string{"llama-3", "chatml", "mistral_default", "phi-2", "gemma", "qwen2"},
+	}
+	_, convTemplate, err := promptTemplate.Run()
+	if err != nil {
+		cliError("Selection failed", err)
+	}
 
+	fmt.Printf("\n🚀 Starting Quantization [%s] using env [%s]...\n", quantCode, platform.CliEnv)
 
-cmd := exec.Command("conda", "run", "--no-capture-output", "-n", "mlc-env", 
-    "python", "-m", "mlc_llm", "convert_weight", 
-    modelPath, 
-    "--quantization", quantCode, 
-    "-o", outputDir)
+	cmd := exec.Command("conda", "run", "--no-capture-output", "-n", platform.CliEnv,
+		"python", "-m", "mlc_llm", "convert_weight",
+		modelPath,
+		"--quantization", quantCode,
+		"-o", outputDir)
 
-cmd.Stdout = os.Stdout
-cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-if err := cmd.Run(); err != nil {
-    cliError("Quantization failed: ", err)
+	if err := cmd.Run(); err != nil {
+		cliError("Quantization failed: ", err)
+	}
+
+	fmt.Println("\n📄 Generating config...")
+	cmdConfig := exec.Command("conda", "run", "--no-capture-output", "-n", platform.CliEnv,
+		"python", "-m", "mlc_llm", "gen_config", modelPath,
+		"--quantization", quantCode,
+		"--conv-template", convTemplate,
+		"-o", outputDir)
+
+	cmdConfig.Stdout = os.Stdout
+	cmdConfig.Stderr = os.Stderr
+
+	if err := cmdConfig.Run(); err != nil {
+		cliError("Config generation failed: ", err)
+	}
+
+	fmt.Println("\n" + Success + "Quantization Complete! Model saved to " + outputDir)
 }
-
-fmt.Println("\n📄 Generating config...")
-cmdConfig := exec.Command("conda", "run", "--no-capture-output", "-n", "mlc-env", 
-    "python", "-m", "mlc_llm", "gen_config", modelPath, 
-    "--quantization", quantCode, 
-    "--conv-template", "llama-3", 
-    "-o", outputDir)
-
-cmdConfig.Stdout = os.Stdout
-cmdConfig.Stderr = os.Stderr
-
-if err := cmdConfig.Run(); err != nil {
-    cliError("Config generation failed: ", err)
-}
-
-fmt.Println("\n" + Success + "Quantization Complete! Model saved to " + outputDir)
-}
-
 
 func promptInstall(platform Platform, pkg string) {
 	prompt := promptui.Select{
