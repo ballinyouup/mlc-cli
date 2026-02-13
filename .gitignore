@@ -5,3 +5,9 @@
 /python/LaMP/*
 /python/LaMP
 .idea
+
+Qwen2.5-1.5B-Instruct/
+dist/
+*.bin
+*.dll
+*.whl

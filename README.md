@@ -54,6 +54,7 @@ This CLI prepares the environment required to build the Android APK.
 | **Linux** | ✅ Verified |
 | **Mac (M1/M2/M3)** | ✅ Verified |
 | **Android** | ✅ Verified |
+| **Windows** | ✅ Verified |
 
 ## 🧪 Verified Models
 The tool is tested with the following HuggingFace models:
