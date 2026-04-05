@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/manifoldco/promptui"
 )
 
+// Platform holds all configuration for the build/run environment
 type Platform struct {
+	OperatingSystem string
 	TVMBuildEnv     string
 	MLCBuildEnv     string
 	CliEnv          string
-	OperatingSystem string
 	GitHubRepo      string
 	ModelURL        string
 	ModelName       string
@@ -33,38 +35,49 @@ type Platform struct {
 	InstallMode     string
 }
 
+// build executes the build script for the specified package
 func (p *Platform) build(pkg string) {
 	var cmd *exec.Cmd
+	scriptPath := "scripts/" + p.OperatingSystem + "_build_" + pkg + ".sh"
+
+	// Check if script exists
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		reportError("Build script not found: %s", err)
+		return
+	}
 
 	if pkg == "mlc" {
 		if p.OperatingSystem == "mac" {
-			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh",
+			cmd = exec.Command("bash", scriptPath,
 				p.MLCBuildEnv, p.CUDA, p.ROCM, p.Vulkan, p.Metal, p.OpenCL, p.TVMSource, p.BuildWheels, p.ForceClone)
 		} else {
-			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh",
+			cmd = exec.Command("bash", scriptPath,
 				p.MLCBuildEnv, p.CUDA, p.Cutlass, p.CuBLAS, p.ROCM, p.Vulkan, p.OpenCL, p.FlashInfer, p.CUDAArch, p.GitHubRepo, p.TVMSource, p.BuildWheels, p.ForceClone)
 		}
 	} else if pkg == "tvm" {
 		if p.OperatingSystem == "mac" {
-			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.TVMBuildEnv, p.TVMSource, p.BuildWheels, p.ForceClone)
+			cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv, p.TVMSource, p.BuildWheels, p.ForceClone)
 		} else {
-			cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.CUDAArch, p.TVMSource, p.BuildWheels, p.ForceClone)
+			cmd = exec.Command("bash", scriptPath, p.CUDAArch, p.TVMSource, p.BuildWheels, p.ForceClone)
 		}
 	} else {
-		cmd = exec.Command("bash", "scripts/"+p.OperatingSystem+"_build_"+pkg+".sh", p.TVMBuildEnv)
+		cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv)
 	}
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	scriptErr := cmd.Run()
-	if scriptErr != nil {
-		panic(scriptErr)
+
+	fmt.Printf("\n📦 Building %s...\n", pkg)
+	if err := cmd.Run(); err != nil {
+		reportError("%s build failed", err)
+		return
 	}
+	fmt.Printf("%sBuild of %s completed successfully.\n", Success, pkg)
 }
 
+// install executes the install script for the specified package
 func (p *Platform) install(pkg string) {
 	var cmd *exec.Cmd
-
 	scriptPath := "scripts/" + p.OperatingSystem + "_install_" + pkg + ".sh"
 
 	switch pkg {
@@ -74,6 +87,11 @@ func (p *Platform) install(pkg string) {
 			return
 		} else if p.OperatingSystem != "linux" {
 			fmt.Println("CUDA installation is only supported on Linux.")
+			return
+		}
+		// Check if script exists
+		if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+			fmt.Println(Warning + "CUDA install script not found, skipping.")
 			return
 		}
 		cmd = exec.Command("bash", scriptPath)
@@ -87,36 +105,19 @@ func (p *Platform) install(pkg string) {
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	scriptErr := cmd.Run()
-	if scriptErr != nil {
-		panic(scriptErr)
+
+	fmt.Printf("\n📥 Installing %s...\n", pkg)
+	if err := cmd.Run(); err != nil {
+		reportError("%s installation failed", err)
+		return
 	}
+	fmt.Printf("%sInstallation of %s completed successfully.\n", Success, pkg)
 }
 
-func handlePromptError(err error) {
-	if errors.Is(err, promptui.ErrInterrupt) {
-		fmt.Println("\nExiting...")
-		os.Exit(0)
-	}
-	panic(err)
-}
-
-func promptYesNo(label string) string {
-	prompt := promptui.Select{
-		Label: label,
-		Items: []string{"Yes", "No"},
-	}
-	_, result, err := prompt.Run()
-	if err != nil {
-		handlePromptError(err)
-	}
-	if result == "Yes" {
-		return "y"
-	}
-	return "n"
-}
-
+// run executes the model run script
 func (p *Platform) run() {
+	scriptPath := "scripts/" + p.OperatingSystem + "_run_model.sh"
+
 	// Ask if user has a pre-compiled model library
 	modelLibPath := ""
 	compiledPrompt := promptui.Select{
@@ -153,22 +154,23 @@ func (p *Platform) run() {
 		overrides = "context_window_size=10240;prefill_chunk_size=512"
 	case "Low":
 		overrides = "context_window_size=20480;prefill_chunk_size=1024"
-	case "Default":
-		overrides = ""
 	case "High":
 		overrides = "context_window_size=81920;prefill_chunk_size=4096"
+	default:
+		overrides = ""
 	}
 
-	cmd := exec.Command("bash", "scripts/"+p.OperatingSystem+"_run_model.sh", p.CliEnv, p.ModelURL, p.ModelName, p.Device, overrides, modelLibPath)
+	fmt.Printf("\n🚀 Running model on %s...\n", p.Device)
+	cmd := exec.Command("bash", scriptPath, p.CliEnv, p.ModelURL, p.ModelName, p.Device, overrides, modelLibPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	scriptErr := cmd.Run()
-	if scriptErr != nil {
-		panic(scriptErr)
+	if err := cmd.Run(); err != nil {
+		reportError("Model run failed", err)
 	}
 }
 
+// ConfigureGitHubRepo prompts for GitHub repository URL
 func (p *Platform) ConfigureGitHubRepo() {
 	gitHubRepoPrompt := promptui.Prompt{
 		Label:   "Enter GitHub repository URL",
@@ -181,6 +183,7 @@ func (p *Platform) ConfigureGitHubRepo() {
 	}
 }
 
+// ConfigureRepoAction checks for existing repos and prompts for action
 func (p *Platform) ConfigureRepoAction() {
 	// Check if mlc-llm or tvm directories already exist
 	mlcExists := false
@@ -219,6 +222,7 @@ func (p *Platform) ConfigureRepoAction() {
 	}
 }
 
+// ConfigureBuildOptions prompts for build configuration
 func (p *Platform) ConfigureBuildOptions() {
 	// Prompt for TVM source selection
 	tvmSourcePrompt := promptui.Select{
@@ -288,91 +292,24 @@ func (p *Platform) ConfigureBuildOptions() {
 	}
 }
 
+// ConfigureWheelBuildOption prompts for wheel building
 func (p *Platform) ConfigureWheelBuildOption() {
 	p.BuildWheels = promptYesNo("Build Python wheels after compilation?")
 }
 
-func extractModelNameFromURL(url string) string {
-	urlParts := []rune(url)
-	lastSlash := -1
-	for i := len(urlParts) - 1; i >= 0; i-- {
-		if urlParts[i] == '/' {
-			lastSlash = i
-			break
-		}
-	}
-	if lastSlash != -1 && lastSlash < len(urlParts)-1 {
-		return string(urlParts[lastSlash+1:])
-	}
-	return url
-}
-
-func promptModelURL() string {
-	modelURLPrompt := promptui.Prompt{
-		Label: "Enter model Git URL",
-	}
-	url, err := modelURLPrompt.Run()
-	if err != nil {
-		handlePromptError(err)
-	}
-	return url
-}
-
-func getLocalModelDirectories() []string {
-	entries, err := os.ReadDir("models")
-	if err != nil {
-		return nil
-	}
-
-	var modelDirs []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			modelDirs = append(modelDirs, entry.Name())
-		}
-	}
-	return modelDirs
-}
-
-func promptLocalModelName() string {
-	modelNamePrompt := promptui.Prompt{
-		Label:   "Enter local model name (in models/ directory)",
-		Default: "",
-	}
-	name, err := modelNamePrompt.Run()
-	if err != nil {
-		handlePromptError(err)
-	}
-	return name
-}
-
-func selectLocalModel() string {
-	modelDirs := getLocalModelDirectories()
-
-	if len(modelDirs) == 0 {
-		return promptLocalModelName()
-	}
-
-	modelSelectPrompt := promptui.Select{
-		Label: "\\Select a model from models/ directory",
-		Items: modelDirs,
-	}
-	_, modelName, err := modelSelectPrompt.Run()
-	if err != nil {
-		handlePromptError(err)
-	}
-	return modelName
-}
-
+// configureRemoteModel sets up a remote model from URL
 func (p *Platform) configureRemoteModel() {
 	p.ModelURL = promptModelURL()
 	p.ModelName = extractModelNameFromURL(p.ModelURL)
 }
 
+// configureLocalModel sets up a local model
 func (p *Platform) configureLocalModel() {
 	p.ModelName = selectLocalModel()
 	p.ModelURL = ""
 }
 
+// configureDevice prompts for device selection
 func (p *Platform) configureDevice() {
 	deviceDefault := "metal"
 	if p.OperatingSystem == "linux" {
@@ -388,8 +325,15 @@ func (p *Platform) configureDevice() {
 	if err != nil {
 		handlePromptError(err)
 	}
+
+	// Validate device
+	if !isValidDevice(p.Device) {
+		fmt.Printf(Warning+"Invalid device '%s'. Using default: %s\n", p.Device, deviceDefault)
+		p.Device = deviceDefault
+	}
 }
 
+// ConfigureModel prompts for model source selection
 func (p *Platform) ConfigureModel() {
 	modelSourcePrompt := promptui.Select{
 		Label: "Select model source",
@@ -409,6 +353,7 @@ func (p *Platform) ConfigureModel() {
 	p.configureDevice()
 }
 
+// CheckAndInstallConda verifies conda is installed and offers to install if not
 func CheckAndInstallConda(operatingSystem string) {
 	cmd := exec.Command("conda", "--version")
 	err := cmd.Run()
@@ -424,78 +369,81 @@ func CheckAndInstallConda(operatingSystem string) {
 		}
 
 		if result == "Yes" {
-			installCmd := exec.Command("bash", "scripts/"+operatingSystem+"_install_conda.sh")
+			scriptPath := "scripts/" + operatingSystem + "_install_conda.sh"
+			// Check if script exists
+			if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+				reportError("Conda install script not found: %s", err)
+				return
+			}
+			installCmd := exec.Command("bash", scriptPath)
 			installCmd.Stdout = os.Stdout
 			installCmd.Stderr = os.Stderr
-			installErr := installCmd.Run()
-			if installErr != nil {
-				panic(installErr)
+			if err := installCmd.Run(); err != nil {
+				reportError("Conda installation failed", err)
 			}
 		} else {
-			panic("Conda is required to proceed. Please install conda and try again.")
+			reportError("Conda is required to proceed. Please install conda and try again.", nil)
 		}
 	}
 }
 
+// CheckCudaInstalled checks if CUDA is installed
 func CheckCudaInstalled() bool {
 	cmd := exec.Command("nvcc", "--version")
 	err := cmd.Run()
 	return err == nil
 }
 
+// CreatePlatform creates a new Platform instance with user prompts
 func CreatePlatform() *Platform {
-	OperatingSystem := ""
-	TvmBuildEnv := ""
-	MLCBuildEnv := ""
-	CliEnv := ""
-	var err error = nil
+	operatingSystem := ""
+	tvmBuildEnv := ""
+	mlcBuildEnv := ""
+	cliEnv := ""
 
 	osPrompt := promptui.Select{
-		Label: "Select a MLC build environment",
-		Items: []string{"mac", "linux", "windows"},
+		Label: "Select Operating System",
+		Items: []string{"mac", "linux"},
 	}
-	_, OperatingSystem, err = osPrompt.Run()
+	_, operatingSystem, err := osPrompt.Run()
 	if err != nil {
 		handlePromptError(err)
 	}
 
-	CheckAndInstallConda(OperatingSystem)
+	CheckAndInstallConda(operatingSystem)
 
-	TvmBuildEnvPrompt := promptui.Prompt{
+	tvmBuildEnvPrompt := promptui.Prompt{
 		Label:   "Enter a TVM build environment name",
 		Default: "tvm-build-venv",
 	}
-
-	TvmBuildEnv, err = TvmBuildEnvPrompt.Run()
+	tvmBuildEnv, err = tvmBuildEnvPrompt.Run()
 	if err != nil {
 		handlePromptError(err)
 	}
 
-	MLCBuildEnvPrompt := promptui.Prompt{
+	mlcBuildEnvPrompt := promptui.Prompt{
 		Label:   "Enter a MLC build environment name",
 		Default: "mlc-build-venv",
 	}
-
-	MLCBuildEnv, err = MLCBuildEnvPrompt.Run()
+	mlcBuildEnv, err = mlcBuildEnvPrompt.Run()
 	if err != nil {
 		handlePromptError(err)
 	}
 
-	CliEnvPrompt := promptui.Prompt{
+	cliEnvPrompt := promptui.Prompt{
 		Label:   "Enter a CLI environment name",
 		Default: "mlc-cli-venv",
 	}
-
-	CliEnv, err = CliEnvPrompt.Run()
+	cliEnv, err = cliEnvPrompt.Run()
 	if err != nil {
 		handlePromptError(err)
 	}
 
 	return &Platform{
-		OperatingSystem: OperatingSystem,
-		TVMBuildEnv:     TvmBuildEnv,
-		MLCBuildEnv:     MLCBuildEnv,
-		CliEnv:          CliEnv,
+		OperatingSystem: operatingSystem,
+		TVMBuildEnv:     tvmBuildEnv,
+		MLCBuildEnv:     mlcBuildEnv,
+		CliEnv:          cliEnv,
 		GitHubRepo:      "",
 		ModelURL:        "",
 		ModelName:       "",
@@ -514,4 +462,106 @@ func CreatePlatform() *Platform {
 		ForceClone:      "n",
 		InstallMode:     "source",
 	}
+}
+
+// Helper functions
+
+// handlePromptError handles errors from promptui
+func handlePromptError(err error) {
+	if errors.Is(err, promptui.ErrInterrupt) {
+		fmt.Println("\nExiting...")
+		os.Exit(0)
+	}
+	reportError("Prompt error", err)
+}
+
+// promptYesNo prompts for a yes/no selection
+func promptYesNo(label string) string {
+	prompt := promptui.Select{
+		Label: label,
+		Items: []string{"Yes", "No"},
+	}
+	_, result, err := prompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	if result == "Yes" {
+		return "y"
+	}
+	return "n"
+}
+
+// reportError prints an error message and exits
+func reportError(msg string, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s%s: %v\n", Error, msg, err)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s%s\n", Error, msg)
+	}
+	os.Exit(1)
+}
+
+// extractModelNameFromURL extracts the model name from a URL
+func extractModelNameFromURL(url string) string {
+	return filepath.Base(url)
+}
+
+// promptModelURL prompts for a model URL
+func promptModelURL() string {
+	modelURLPrompt := promptui.Prompt{
+		Label: "Enter model Git URL",
+	}
+	url, err := modelURLPrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	return url
+}
+
+// getLocalModelDirectories returns a list of model directories in models/
+func getLocalModelDirectories() []string {
+	entries, err := os.ReadDir("models")
+	if err != nil {
+		return nil
+	}
+
+	var modelDirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			modelDirs = append(modelDirs, entry.Name())
+		}
+	}
+	return modelDirs
+}
+
+// promptLocalModelName prompts for a local model name
+func promptLocalModelName() string {
+	modelNamePrompt := promptui.Prompt{
+		Label:   "Enter local model name (in models/ directory)",
+		Default: "",
+	}
+	name, err := modelNamePrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	return name
+}
+
+// selectLocalModel prompts the user to select a local model
+func selectLocalModel() string {
+	modelDirs := getLocalModelDirectories()
+
+	if len(modelDirs) == 0 {
+		return promptLocalModelName()
+	}
+
+	modelSelectPrompt := promptui.Select{
+		Label: "Select a model from models/ directory",
+		Items: modelDirs,
+	}
+	_, modelName, err := modelSelectPrompt.Run()
+	if err != nil {
+		handlePromptError(err)
+	}
+	return modelName
 }

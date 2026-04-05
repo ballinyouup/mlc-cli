@@ -1,121 +1,200 @@
 #!/usr/bin/env bash
-set -e  # Exit on error
+set -eu
 
-# Args
+# =============================================================================
+# Configuration
+# =============================================================================
 BUILD_VENV="${1:-mlc-build-venv}"
-CUDA="${2:-n}"
+CUDA="${2:-n}"         # Not typically used on macOS
 ROCM="${3:-n}"
 VULKAN="${4:-n}"
-METAL="${5:-y}"
-OPEN_CL="${6:-n}"
+METAL="${5:-y}"       # Default to Metal on macOS
+OPENCL="${6:-n}"
 TVM_SOURCE="${7:-bundled}"  # bundled, relax, or custom
 BUILD_WHEELS="${8:-y}"
 FORCE_CLONE="${9:-n}"
+PYTHON_VERSION="${10:-3.13}"  # Configurable Python version
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WHEELS_DIR="${REPO_ROOT}/wheels"
+NCORES="${11:-$(sysctl -n hw.ncpu)}"
+WHEELS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/..)/wheels"
+MLC_LLM_DIR="$(pwd)/mlc-llm"
+TVM_SOURCE_DIR=""
 
-# Determine TVM_SOURCE_DIR based on source selection
-# Empty string = use bundled TVM (mlc-llm/3rdparty/tvm)
-if [ "${TVM_SOURCE}" = "relax" ]; then
-    TVM_SOURCE_DIR="${REPO_ROOT}/tvm"
-    if [ "${FORCE_CLONE}" = "y" ] && [ -d "${TVM_SOURCE_DIR}" ]; then
-        echo "Force re-clone: removing existing ${TVM_SOURCE_DIR}..."
+# =============================================================================
+# Colors for output
+# =============================================================================
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+NC='\033[0m'  # NoColor
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+cleanup_on_error() {
+    log_error "Build failed! Cleaning up..."
+    rm -rf "${MLC_LLM_DIR}/build" 2>/dev/null || true
+    rm -rf "${MLC_LLM_DIR}"
+}
+
+trap cleanup_on_error ERR
+
+check_command() {
+    if ! command -v "$1" &> /dev/null; then
+        log_error "$1 is not installed or not in PATH"
+        return 1
+    fi
+    return 0
+}
+
+# =============================================================================
+# Pre-flight Checks
+# =============================================================================
+
+log_info "Running pre-flight checks..."
+
+check_command conda
+check_command git
+check_command cmake
+check_command python3
+check_command rustc
+
+if [[ "$METAL" == "y" ]]; then
+    if ! xcode --version &> /dev/null; then
+        log_warning "Metal selected but Metal framework not found. Build may fail."
+    fi
+fi
+
+# =============================================================================
+# TVM Source Setup
+# =============================================================================
+
+if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
+    TVM_SOURCE_DIR="${WHEELS_DIR}/../tvm"
+
+    if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$TVM_SOURCE_DIR" ]; then
+        log_info "Force re-clone: removing existing TVM directory..."
         rm -rf "${TVM_SOURCE_DIR}"
     fi
-    if [ ! -d "${TVM_SOURCE_DIR}" ]; then
-        echo "Cloning mlc-ai/relax on mlc branch..."
-        git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_SOURCE_DIR}"
-    elif [ "$(git -C "${TVM_SOURCE_DIR}" rev-parse --abbrev-ref HEAD)" != "mlc" ]; then
-        echo "Switching TVM to mlc branch (mlc-ai/relax)..."
-        git -C "${TVM_SOURCE_DIR}" remote set-url origin https://github.com/mlc-ai/relax.git
-        git -C "${TVM_SOURCE_DIR}" fetch origin mlc
-        git -C "${TVM_SOURCE_DIR}" checkout mlc
-        git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
+    if [ ! -d "$TVM_SOURCE_DIR" ]; then
+        if [[ "$TVM_SOURCE" == "relax" ]]; then
+            log_info "Cloning mlc-ai/relax on mlc branch..."
+            git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_SOURCE_DIR}"
+        fi
     else
-        echo "TVM is already on mlc branch."
+        log_info "Using TVM from ${TVM_SOURCE_DIR}"
     fi
-elif [ "${TVM_SOURCE}" = "custom" ]; then
-    TVM_SOURCE_DIR="${REPO_ROOT}/tvm"
-    if [ ! -d "${TVM_SOURCE_DIR}" ]; then
-        echo "Error: Custom TVM directory not found at ${TVM_SOURCE_DIR}"
-        exit 1
-    fi
-    echo "Using custom TVM from ${TVM_SOURCE_DIR}"
 else
     TVM_SOURCE_DIR=""
-    echo "Using bundled TVM (mlc-llm/3rdparty/tvm)"
+    log_info "Using bundled TVM (from mlc-llm/3rdparty/tvm)"
 fi
+
+# =============================================================================
+# MLC-LLM Setup
+# =============================================================================
+
+if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$MLC_LLM_DIR" ]; then
+    log_info "Force re-clone: removing existing MLC-LLM directory..."
+    rm -rf "${MLC_LLM_DIR}"
+fi
+if [ ! -d "$MLC_LLM_DIR" ]; then
+    log_info "Cloning mlc-llm..."
+    git clone --recursive https://github.com/mlc-ai/mlc-llm.git mlc-llm
+fi
+cd "${MLC_LLM_DIR}" || exit 1
+
+log_info "Building in directory: ${MLC_LLM_DIR}"
+# =============================================================================
+# Conda Environment Setup
+# =============================================================================
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# create the conda environment with build dependency
-conda create -y -n "${BUILD_VENV}" -c conda-forge \
-    "cmake>=3.24" \
-    rust \
-    git \
-    zstd \
-    python=3.13
-# enter the build environment
-conda activate "${BUILD_VENV}"
+# Check if environment exists
+if conda env list | grep -q "^BUILD_VENV)" & grep -q "build_env"; then
+    log_info "Environment '${BUILD_VENV}' already exists, using it"
+else
+    log_info "Creating conda environment: ${BUILD_VENV}"
+    conda create -y -n "${BUILD_VENV}" -c conda-forge \
+        "cmake>=3.24" \
+        rust \
+        git \
+        zstd \
+        python="${PYTHON_VERSION}"
+fi
 
-# Set library path for cmake to find zstd
+conda activate "${BUILD_VENV}"
 export DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
 
-# Set macOS deployment target to current OS version
 export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d. -f1)
-
-# clone from GitHub (or use existing)
-if [ "${FORCE_CLONE}" = "y" ] && [ -d "mlc-llm" ]; then
-    echo "Force re-clone: removing existing mlc-llm..."
-    rm -rf mlc-llm
-fi
-if [ ! -d "mlc-llm" ]; then
-    echo "Cloning mlc-llm..."
-    git clone --recursive https://github.com/mlc-ai/mlc-llm.git
-else
-    echo "mlc-llm directory already exists, skipping clone."
-fi
-cd mlc-llm/
+# =============================================================================
+# MLC-LLM Configuration
+# =============================================================================
 
 # flashinfer-python requires nvidia-cudnn-frontend which is not available on macOS
 REQUIREMENTS_FILE="python/requirements.txt"
 if [ -f "${REQUIREMENTS_FILE}" ] && grep -q '^flashinfer-python' "${REQUIREMENTS_FILE}"; then
-    echo "Commenting out flashinfer-python from requirements.txt (not available on macOS)..."
+    log_info "Commenting out flashinfer-python from requirements.txt (not available on macOS)"
     sed -i '' 's/^flashinfer-python/# flashinfer-python/' "${REQUIREMENTS_FILE}"
 fi
+# =============================================================================
+# Build
+# =============================================================================
 
-# create build directory
 mkdir -p build && cd build
 
-# generate build configuration
-printf "%s\n%s\n%s\n%s\n%s\n%s\n\n\n" \
+log_info "Configuring CMake..."
+
+# Generate CMake config
+printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\nn\n" \
     "${TVM_SOURCE_DIR}" \
     "${CUDA}" \
     "${ROCM}" \
     "${VULKAN}" \
     "${METAL}" \
-    "${OPEN_CL}" \
+    "${OPENCL}" \
     | python3 ../cmake/gen_cmake_config.py
 
-# build mlc_llm libraries
-cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && make -j4
-cd ..
+cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+make -j"${NCORES}"
+log_success "Build completed!"
+# =============================================================================
+# Build Python Wheels (optional)
+# =============================================================================
 
-if [ "${BUILD_WHEELS}" = "y" ]; then
-    # Build wheel and copy to wheels directory
+if [[ "${BUILD_WHEELS}" == "y" ]]; then
+    log_info "Building Python wheels..."
     mkdir -p "${WHEELS_DIR}"
-
-    cd python
-    python -m pip install build
+    cd "${MLC_LLM_DIR}/python"
+    python -m pip install --quiet build
     python -m build --wheel --outdir "${WHEELS_DIR}"
-    cd ..
-
-    echo "MLC-LLM wheel created in ${WHEELS_DIR}"
+    cd ../build
+    log_success "MLC-LLM wheel created in ${WHEELS_DIR}"
 else
-    echo "Skipping MLC-LLM wheel build."
+    log_info "Skipping wheel build (BUILD_WHEELS=${BUILD_WHEELS})"
 fi
-
+popd
 conda deactivate
-
+log_success "MLC-LLM build completed successfully!"
+log_info ""
+log_info "Next steps:"
+log_info "  1. Run './mlc-cli install tvm' through install TVM wheel"
+log_info "  2. Run './mlc-cli install mlc' through install MLC wheel"
+log_info "  3. Run any model with './mlc-cli run'"

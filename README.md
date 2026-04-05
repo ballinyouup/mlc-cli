@@ -16,9 +16,13 @@
 
 ## 🛠️ Prerequisites
 
-- **Go** (1.20+) — If you don't have Go installed, run the included installer:
+- **Go** (1.21+) — If you don't have Go installed:
   ```bash
+  # Linux
   ./install_go.sh
+  
+  # macOS
+  brew install go
   ```
 - **Git**
 - **Conda** (Optional, the tool can install it for you)
@@ -28,7 +32,7 @@
 ### 1. Installation
 
 ```bash
-git clone https://github.com/yourusername/mlc-cli.git
+git clone https://github.com/ballinyouup/mlc-cli.git
 cd mlc-cli
 ```
 
@@ -179,6 +183,8 @@ mlc-cli quantize --model models/phi-2 --quant q0f16 --template phi-2 --output di
 
 ## 📱 Android Development
 
+> **Note:** The Deploy menu option is currently a placeholder. Follow the manual instructions below for Android deployment.
+
 This CLI prepares the environment required to build the Android APK.
 
 1. Use `mlc-cli` to build the `tvm` and `mlc` libraries from source first.
@@ -189,18 +195,24 @@ This CLI prepares the environment required to build the Android APK.
 
 ## 🏗️ Supported Architectures
 
-| Platform | Status |
-| :--- | :--- |
-| **Linux** | ✅ Verified |
-| **Mac (M1/M2/M3)** | ✅ Verified |
-| **Android** | ✅ Verified |
-| **Windows** | ✅ Verified |
+| Platform | Status | Notes |
+| :--- | :--- | :--- |
+| **Linux** | ✅ Verified | CUDA, ROCm, Vulkan supported |
+| **Mac (M1/M2/M3)** | ✅ Verified | Metal support |
+| **Android** | ✅ Verified | Manual deployment required |
+| **Windows** | ⚠️ Requires WSL | Use WSL or Git Bash |
 
 ## 🧪 Verified Models
 
 The tool is tested with the following HuggingFace models:
 
 - `mlc-ai/Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC`
+
+## 🐛 Known Issues
+
+1. **Deploy Menu:** The "Deploy" option in interactive mode shows a placeholder message. See the Android Development section for deployment instructions.
+
+2. **CUDA on macOS:** CUDA-specific options (cutlass, flashinfer, etc.) are not available on macOS. The script automatically disables these.
 
 ## 📄 License
 

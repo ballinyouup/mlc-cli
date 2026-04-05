@@ -1,74 +1,85 @@
-#!/bin/bash
-set -e  # Exit on error
+#!/usr/bin/env bash
+set -eu
+
+# =============================================================================
+# Configuration
+# =============================================================================
+CLI_VENV="${1:-mlc-cli-venv}"
+MODEL_URL="${2:-}"
+MODEL_NAME="${3:-}"
+DEVICE="${4:-metal}"
+OVERRIDES="${5:-}"
+MODEL_LIB="${6:-}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+MODELS_DIR="${REPO_ROOT}/models"
+
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# =============================================================================
+# Check Conda
+# =============================================================================
+
+if ! command -v conda &> /dev/null; then
+    log_error "Conda is not installed"
+fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# Accept parameters
-CLI_VENV="${1:-mlc-cli-venv}"
-MODEL_URL="${2}"
-MODEL_NAME="${3}"
-DEVICE="${4:-metal}"
-OVERRIDES="${5}"
-MODEL_LIB_PATH="${6}"
+# =============================================================================
+# Setup Model
+# =============================================================================
+
+mkdir -p "${MODELS_DIR}"
+
+if [[ -n "${MODEL_URL}" ]]; then
+    log_info "Cloning model from ${MODEL_URL}..."
+    cd "${MODELS_DIR}"
+    git clone --depth 1 "${MODEL_URL}" "$(basename "${MODEL_URL}")"
+    cd ..
+fi
+
+# Determine model path
+if [[ -n "${MODEL_NAME}" ]]; then
+    MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+else
+    log_error "Model name is required"
+fi
+
+# =============================================================================
+# Activate Environment and Run
+# =============================================================================
 
 conda activate "${CLI_VENV}"
-mkdir -p models
-if [ -z "${MODEL_NAME}" ]; then
-    if [ -d "models" ]; then
-        MODEL_NAME=$(ls -1 models 2>/dev/null | head -n 1)
-    fi
-fi
-MODEL_PATH="models/${MODEL_NAME}"
 
-# Clone model if URL is provided and model doesn't exist
-if [ -n "${MODEL_URL}" ]; then
-    if [ ! -d "${MODEL_PATH}" ]; then
-        echo "Cloning model from HuggingFace..."
-        cd models
-        git clone "${MODEL_URL}"
-        cd "${MODEL_NAME}"
-        git lfs pull
-        cd ../..
-    else
-        echo "Model already exists, skipping download..."
-    fi
-else
-    echo "Using local model: ${MODEL_NAME}"
+log_info "Running model: ${MODEL_NAME} on ${DEVICE}"
+
+# Build MLC CLI command
+MLC_ARGS=(
+    "chat" \
+    "${MODEL_PATH}" \
+    "--device" "${DEVICE}"
+)
+
+if [[ -n "${OVERRIDES}" ]]; then
+    MLC_ARGS="${MLC_ARGS} --overrides ${OVERRIDES}"
 fi
 
-# Run the model
-if [ -z "${MODEL_NAME}" ] || [ ! -d "${MODEL_PATH}" ]; then
-    echo "Error: MODEL_NAME not provided or model directory not found: ${MODEL_PATH}"
-    echo "Available models:"
-    ls -1 models 2>/dev/null || true
-    conda deactivate
-    exit 1
-fi
-cd "${MODEL_PATH}"
-
-# Build the command arguments
-CMD_ARGS=(chat . --device "${DEVICE}")
-if [ -n "${MODEL_LIB_PATH}" ]; then
-    CMD_ARGS+=(--model-lib "${MODEL_LIB_PATH}")
-fi
-if [ -n "${OVERRIDES}" ]; then
-    CMD_ARGS+=(--overrides "${OVERRIDES}")
+if [[ -n "${MODEL_LIB}" ]]; then
+    MLC_ARGS="${MLC_ARGS} --model-lib-path ${MODEL_LIB}"
 fi
 
-# Run with or without JIT depending on whether a compiled library is provided
-if [ -n "${MODEL_LIB_PATH}" ]; then
-    echo "Using pre-compiled model library: ${MODEL_LIB_PATH}"
-    if command -v mlc_llm >/dev/null 2>&1; then
-        mlc_llm "${CMD_ARGS[@]}"
-    else
-        python -m mlc_llm "${CMD_ARGS[@]}"
-    fi
-else
-    if command -v mlc_llm >/dev/null 2>&1; then
-        MLC_JIT_POLICY=REDO mlc_llm "${CMD_ARGS[@]}"
-    else
-        MLC_JIT_POLICY=REDO python -m mlc_llm "${CMD_ARGS[@]}"
-    fi
-fi
+log_info "Running: mlc_llm ${MLC_ARGS}"
+python -m mlc_llm ${MLC_ARGS}
 
+popd
 conda deactivate
+log_success "Model run completed!"

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/manifoldco/promptui"
@@ -15,15 +16,22 @@ const (
 	Green   = "\033[32m"
 	Reset   = "\033[0m"
 	Red     = "\033[31m"
+	Yellow  = "\033[33m"
 	Success = "[" + Green + "✓" + Reset + "] "
 	Error   = "[" + Red + "✗" + Reset + "] "
+	Warning = "[" + Yellow + "!" + Reset + "] "
 )
 
+// ValidDevices contains the list of supported device types
+var ValidDevices = []string{"metal", "cuda", "vulkan", "rocm", "opencl", "cpu"}
+
+// cliError prints an error message and exits with code 1
 func cliError(msg string, err error) {
-	fmt.Println(Error + msg + err.Error())
+	fmt.Fprintf(os.Stderr, "%s%s: %v\n", Error, msg, err)
 	os.Exit(1)
 }
 
+// printUsage displays the CLI usage information
 func printUsage() {
 	fmt.Println(`MLC-LLM CLI - Interactive and Non-Interactive Modes
 
@@ -71,7 +79,7 @@ func main() {
 			"Run (chat with a model)",
 			"Compile Model (build the .so file to skip JIT compilation at runtime)",
 			"Quantize Model (convert raw model weights to MLC format with quantization)",
-			"Deploy",
+			"Deploy (coming soon)",
 		},
 	}
 	_, selection, err := prompt.Run()
@@ -80,72 +88,75 @@ func main() {
 			fmt.Println("\nExiting...")
 			os.Exit(0)
 		}
-		cliError("Error getting selection: ", err)
+		cliError("Error getting selection", err)
 	}
 
 	if strings.HasPrefix(selection, "Build") {
-		buildPrompt := promptui.Select{
-			Label: "Select build action",
-			Items: []string{
-				"Full Build + Install",
-				"Build Only (no install)",
-				"Install Wheels Only",
-			},
-		}
-		_, buildAction, err := buildPrompt.Run()
-		if err != nil {
-			if errors.Is(err, promptui.ErrInterrupt) {
-				fmt.Println("\nExiting...")
-				os.Exit(0)
-			}
-			cliError("Error getting selection: ", err)
-		}
-
-		platform := CreatePlatform()
-
-		switch buildAction {
-		case "Full Build + Install":
-			platform.ConfigureGitHubRepo()
-			platform.ConfigureRepoAction()
-			platform.ConfigureBuildOptions()
-			platform.ConfigureWheelBuildOption()
-			promptInstall(platform, "cuda")
-			promptBuild(platform, "tvm")
-			promptBuild(platform, "mlc")
-			promptInstall(platform, "tvm")
-			promptInstall(platform, "mlc")
-
-		case "Build Only (no install)":
-			platform.ConfigureGitHubRepo()
-			platform.ConfigureRepoAction()
-			platform.ConfigureBuildOptions()
-			platform.ConfigureWheelBuildOption()
-			promptInstall(platform, "cuda")
-			promptBuild(platform, "tvm")
-			promptBuild(platform, "mlc")
-
-		case "Install Wheels Only":
-			fmt.Println("\nInstalling pre-built wheels into the CLI environment...")
-			platform.InstallMode = "wheel"
-			platform.install("tvm")
-			platform.install("mlc")
-			fmt.Println("\n" + Success + "Wheels installed successfully.")
-		}
-
+		handleBuildSelection()
 	} else if strings.HasPrefix(selection, "Run") {
 		platform := CreatePlatform()
 		platform.ConfigureModel()
 		platform.run()
-
 	} else if strings.HasPrefix(selection, "Compile Model") {
 		platform := CreatePlatform()
 		promptCompileModel(platform)
-
 	} else if strings.HasPrefix(selection, "Quantize Model") {
 		platform := CreatePlatform()
 		promptQuantizeModel(platform)
-
 	} else if strings.HasPrefix(selection, "Deploy") {
+		fmt.Println(Warning + "Deploy feature is coming soon!")
+		fmt.Println("See README.md for Android deployment instructions.")
+	}
+}
+
+// handleBuildSelection handles the build menu selection
+func handleBuildSelection() {
+	buildPrompt := promptui.Select{
+		Label: "Select build action",
+		Items: []string{
+			"Full Build + Install",
+			"Build Only (no install)",
+			"Install Wheels Only",
+		},
+	}
+	_, buildAction, err := buildPrompt.Run()
+	if err != nil {
+		if errors.Is(err, promptui.ErrInterrupt) {
+			fmt.Println("\nExiting...")
+			os.Exit(0)
+		}
+		cliError("Error getting selection", err)
+	}
+
+	platform := CreatePlatform()
+
+	switch buildAction {
+	case "Full Build + Install":
+		platform.ConfigureGitHubRepo()
+		platform.ConfigureRepoAction()
+		platform.ConfigureBuildOptions()
+		platform.ConfigureWheelBuildOption()
+		promptInstall(platform, "cuda")
+		promptBuild(platform, "tvm")
+		promptBuild(platform, "mlc")
+		promptInstall(platform, "tvm")
+		promptInstall(platform, "mlc")
+
+	case "Build Only (no install)":
+		platform.ConfigureGitHubRepo()
+		platform.ConfigureRepoAction()
+		platform.ConfigureBuildOptions()
+		platform.ConfigureWheelBuildOption()
+		promptInstall(platform, "cuda")
+		promptBuild(platform, "tvm")
+		promptBuild(platform, "mlc")
+
+	case "Install Wheels Only":
+		fmt.Println("\nInstalling pre-built wheels into the CLI environment...")
+		platform.InstallMode = "wheel"
+		platform.install("tvm")
+		platform.install("mlc")
+		fmt.Println("\n" + Success + "Wheels installed successfully.")
 	}
 }
 
@@ -188,9 +199,22 @@ func runBuildCmd(args []string) {
 	vulkan := fs.String("vulkan", "n", "Enable Vulkan (y/n)")
 	metal := fs.String("metal", "n", "Enable Metal (y/n)")
 	openCL := fs.String("opencl", "n", "Enable OpenCL (y/n)")
-	err := fs.Parse(args)
-	if err != nil {
+
+	if err := fs.Parse(args); err != nil {
 		printUsage()
+		return
+	}
+
+	// Validate OS
+	if *osFlag != "mac" && *osFlag != "linux" {
+		fmt.Printf("Error: Invalid OS '%s'. Must be 'mac' or 'linux'.\n", *osFlag)
+		os.Exit(1)
+	}
+
+	// Validate TVM source
+	if *tvmSource != "bundled" && *tvmSource != "relax" && *tvmSource != "custom" {
+		fmt.Printf("Error: Invalid TVM source '%s'. Must be 'bundled', 'relax', or 'custom'.\n", *tvmSource)
+		os.Exit(1)
 	}
 
 	p := &Platform{
@@ -246,38 +270,38 @@ func runRunCmd(args []string) {
 	device := fs.String("device", "", "Device: metal, cuda, vulkan, etc.")
 	profile := fs.String("profile", "default", "Compute profile: really-low, low, default, high")
 	modelLib := fs.String("model-lib", "", "Path to pre-compiled model library (.so)")
-	err := fs.Parse(args)
-	if err != nil {
+
+	if err := fs.Parse(args); err != nil {
 		printUsage()
+		return
 	}
 
-	if *device == "" {
-		if *osFlag == "mac" {
-			*device = "metal"
-		} else {
-			*device = "cuda"
-		}
+	// Validate required fields
+	if *modelName == "" && *modelURL == "" {
+		fmt.Println("Error: --model-name or --model-url is required")
+		fs.PrintDefaults()
+		os.Exit(1)
 	}
 
-	var overrides string
-	switch *profile {
-	case "really-low":
-		overrides = "context_window_size=10240;prefill_chunk_size=512"
-	case "low":
-		overrides = "context_window_size=20480;prefill_chunk_size=1024"
-	case "high":
-		overrides = "context_window_size=81920;prefill_chunk_size=4096"
-	default:
-		overrides = ""
+	// Set default device if not specified
+	deviceVal := getDefaultDevice(*device, *osFlag)
+
+	// Validate device
+	if !isValidDevice(deviceVal) {
+		fmt.Printf("Error: Invalid device '%s'. Valid devices: %v\n", deviceVal, ValidDevices)
+		os.Exit(1)
 	}
 
-	fmt.Printf("🚀 Running model (non-interactive) on %s...\n", *device)
-	cmd := exec.Command("bash", "scripts/"+*osFlag+"_run_model.sh", *cliEnv, *modelURL, *modelName, *device, overrides, *modelLib)
+	// Get profile overrides
+	overrides := getProfileOverrides(*profile)
+
+	fmt.Printf("🚀 Running model (non-interactive) on %s...\n", deviceVal)
+	cmd := exec.Command("bash", "scripts/"+*osFlag+"_run_model.sh", *cliEnv, *modelURL, *modelName, deviceVal, overrides, *modelLib)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		cliError("Run failed: ", err)
+		cliError("Run failed", err)
 	}
 }
 
@@ -289,9 +313,10 @@ func runCompileCmd(args []string) {
 	quant := fs.String("quant", "q4f16_1", "Quantization: q4f16_1, q4f16_ft, q4f32_1, q3f16_1, q8f16_1, q0f16, q0f32")
 	device := fs.String("device", "", "Device: metal, cuda, vulkan, etc.")
 	output := fs.String("output", "", "Output path for compiled .so library")
-	err := fs.Parse(args)
-	if err != nil {
+
+	if err := fs.Parse(args); err != nil {
 		printUsage()
+		return
 	}
 
 	if *model == "" {
@@ -299,25 +324,34 @@ func runCompileCmd(args []string) {
 		fs.PrintDefaults()
 		os.Exit(1)
 	}
-	if *device == "" {
-		if *osFlag == "mac" {
-			*device = "metal"
-		} else {
-			*device = "cuda"
-		}
-	}
-	if *output == "" {
-		*output = "dist/libs/" + baseName(*model) + "-" + *quant + "-" + *device + ".so"
+
+	// Set default device and validate
+	deviceVal := getDefaultDevice(*device, *osFlag)
+	if !isValidDevice(deviceVal) {
+		fmt.Printf("Error: Invalid device '%s'. Valid devices: %v\n", deviceVal, ValidDevices)
+		os.Exit(1)
 	}
 
-	fmt.Printf("🔧 Compiling model [%s] quant=[%s] device=[%s] (non-interactive)...\n", *model, *quant, *device)
-	cmd := exec.Command("bash", "scripts/"+*osFlag+"_compile_model.sh", *cliEnv, *model, *quant, *device, *output)
+	// Set default output path
+	outputPath := *output
+	if outputPath == "" {
+		outputPath = "dist/libs/" + filepath.Base(*model) + "-" + *quant + "-" + deviceVal + ".so"
+	}
+
+	// Ensure output directory exists
+	outputDir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		cliError("Failed to create output directory", err)
+	}
+
+	fmt.Printf("🔧 Compiling model [%s] quant=[%s] device=[%s] (non-interactive)...\n", *model, *quant, deviceVal)
+	cmd := exec.Command("bash", "scripts/"+*osFlag+"_compile_model.sh", *cliEnv, *model, *quant, deviceVal, outputPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		cliError("Compilation failed: ", err)
+		cliError("Compilation failed", err)
 	}
-	fmt.Println("\n" + Success + "Model compiled! Library saved to " + *output)
+	fmt.Println("\n" + Success + "Model compiled! Library saved to " + outputPath)
 }
 
 func runQuantizeCmd(args []string) {
@@ -329,9 +363,10 @@ func runQuantizeCmd(args []string) {
 	output := fs.String("output", "", "Output directory for quantized model")
 	template := fs.String("template", "llama-3", "Conversation template: llama-3, chatml, mistral_default, phi-2, gemma, qwen2")
 	device := fs.String("device", "", "Device for quantization: metal, cuda, etc.")
-	err := fs.Parse(args)
-	if err != nil {
+
+	if err := fs.Parse(args); err != nil {
 		printUsage()
+		return
 	}
 
 	if *model == "" {
@@ -339,29 +374,32 @@ func runQuantizeCmd(args []string) {
 		fs.PrintDefaults()
 		os.Exit(1)
 	}
-	if *device == "" {
-		if *osFlag == "mac" {
-			*device = "metal"
-		} else {
-			*device = "cuda"
-		}
-	}
-	if *output == "" {
-		*output = "dist/" + baseName(*model) + "-" + *quant + "-MLC"
+
+	// Set default device and validate
+	deviceVal := getDefaultDevice(*device, *osFlag)
+	if !isValidDevice(deviceVal) {
+		fmt.Printf("Error: Invalid device '%s'. Valid devices: %v\n", deviceVal, ValidDevices)
+		os.Exit(1)
 	}
 
-	fmt.Printf("🚀 Quantizing [%s] with [%s] on [%s] (non-interactive)...\n", *model, *quant, *device)
+	// Set default output path
+	outputPath := *output
+	if outputPath == "" {
+		outputPath = "dist/" + filepath.Base(*model) + "-" + *quant + "-MLC"
+	}
+
+	fmt.Printf("🚀 Quantizing [%s] with [%s] on [%s] (non-interactive)...\n", *model, *quant, deviceVal)
 
 	cmd := exec.Command("conda", "run", "--no-capture-output", "-n", *cliEnv,
 		"python", "-m", "mlc_llm", "convert_weight",
 		*model,
 		"--quantization", *quant,
-		"--device", *device,
-		"-o", *output)
+		"--device", deviceVal,
+		"-o", outputPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		cliError("Quantization failed: ", err)
+		cliError("Quantization failed", err)
 	}
 
 	fmt.Println("\n📄 Generating config...")
@@ -369,32 +407,71 @@ func runQuantizeCmd(args []string) {
 		"python", "-m", "mlc_llm", "gen_config", *model,
 		"--quantization", *quant,
 		"--conv-template", *template,
-		"-o", *output)
+		"-o", outputPath)
 	cmdConfig.Stdout = os.Stdout
 	cmdConfig.Stderr = os.Stderr
 	if err := cmdConfig.Run(); err != nil {
-		cliError("Config generation failed: ", err)
+		cliError("Config generation failed", err)
 	}
 
-	fmt.Println("\n" + Success + "Quantization complete! Model saved to " + *output)
+	fmt.Println("\n" + Success + "Quantization complete! Model saved to " + outputPath)
 }
 
+// detectOS returns the operating system type
 func detectOS() string {
-	if platform, _ := exec.Command("uname").Output(); strings.TrimSpace(string(platform)) == "Darwin" {
-		return "mac"
+	platform, err := exec.Command("uname").Output()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Could not detect OS: %v, defaulting to linux\n", err)
+		return "linux"
 	}
-	return "linux"
+
+	osName := strings.TrimSpace(string(platform))
+	switch osName {
+	case "Darwin":
+		return "mac"
+	case "Linux":
+		return "linux"
+	default:
+		return "linux"
+	}
 }
 
-func baseName(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			return path[i+1:]
+// getDefaultDevice returns the default device based on OS, or the specified device if valid
+func getDefaultDevice(device, osFlag string) string {
+	if device != "" {
+		return device
+	}
+	if osFlag == "mac" {
+		return "metal"
+	}
+	return "cuda"
+}
+
+// isValidDevice checks if the device type is valid
+func isValidDevice(device string) bool {
+	for _, d := range ValidDevices {
+		if device == d {
+			return true
 		}
 	}
-	return path
+	return false
 }
 
+// getProfileOverrides returns the compute profile overrides string
+func getProfileOverrides(profile string) string {
+	switch profile {
+	case "really-low":
+		return "context_window_size=10240;prefill_chunk_size=512"
+	case "low":
+		return "context_window_size=20480;prefill_chunk_size=1024"
+	case "high":
+		return "context_window_size=81920;prefill_chunk_size=4096"
+	default:
+		return ""
+	}
+}
+
+// promptQuantizeModel handles the interactive quantize model flow
 func promptQuantizeModel(platform *Platform) {
 	// List models from models/ directory
 	modelDirs := getLocalModelDirectories()
@@ -461,22 +538,10 @@ func promptQuantizeModel(platform *Platform) {
 	}
 
 	// Extract quantization code (everything before the first space)
-	quantCode := quantResult
-	for i, ch := range quantResult {
-		if ch == ' ' {
-			quantCode = quantResult[:i]
-			break
-		}
-	}
+	quantCode := strings.Split(quantResult, " ")[0]
 
 	// Default output directory based on model name and quantization
-	modelName := modelPath
-	for i := len(modelPath) - 1; i >= 0; i-- {
-		if modelPath[i] == '/' {
-			modelName = modelPath[i+1:]
-			break
-		}
-	}
+	modelName := filepath.Base(modelPath)
 	defaultOutput := "dist/" + modelName + "-" + quantCode + "-MLC"
 
 	promptOut := promptui.Prompt{
@@ -512,7 +577,7 @@ func promptQuantizeModel(platform *Platform) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		cliError("Quantization failed: ", err)
+		cliError("Quantization failed", err)
 	}
 
 	fmt.Println("\n📄 Generating config...")
@@ -526,12 +591,13 @@ func promptQuantizeModel(platform *Platform) {
 	cmdConfig.Stderr = os.Stderr
 
 	if err := cmdConfig.Run(); err != nil {
-		cliError("Config generation failed: ", err)
+		cliError("Config generation failed", err)
 	}
 
 	fmt.Println("\n" + Success + "Quantization Complete! Model saved to " + outputDir)
 }
 
+// promptCompileModel handles the interactive compile model flow
 func promptCompileModel(platform *Platform) {
 	// List models from models/ directory
 	modelDirs := getLocalModelDirectories()
@@ -598,24 +664,12 @@ func promptCompileModel(platform *Platform) {
 	}
 
 	// Extract quantization code (everything before the first space)
-	quantCode := quantResult
-	for i, ch := range quantResult {
-		if ch == ' ' {
-			quantCode = quantResult[:i]
-			break
-		}
-	}
+	quantCode := strings.Split(quantResult, " ")[0]
 
 	platform.configureDevice()
 
 	// Default output uses model name, quant, and device
-	modelName := modelPath
-	for i := len(modelPath) - 1; i >= 0; i-- {
-		if modelPath[i] == '/' {
-			modelName = modelPath[i+1:]
-			break
-		}
-	}
+	modelName := filepath.Base(modelPath)
 	defaultOutput := "dist/libs/" + modelName + "-" + quantCode + "-" + platform.Device + ".so"
 
 	outputPrompt := promptui.Prompt{
@@ -627,6 +681,12 @@ func promptCompileModel(platform *Platform) {
 		cliError("Input failed", err)
 	}
 
+	// Ensure output directory exists
+	outputDir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		cliError("Failed to create output directory", err)
+	}
+
 	fmt.Printf("\n🔧 Compiling model [%s] with quantization [%s] for device [%s]...\n", modelPath, quantCode, platform.Device)
 
 	cmd := exec.Command("bash", "scripts/"+platform.OperatingSystem+"_compile_model.sh",
@@ -635,12 +695,13 @@ func promptCompileModel(platform *Platform) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		cliError("Compilation failed: ", err)
+		cliError("Compilation failed", err)
 	}
 
 	fmt.Println("\n" + Success + "Model compiled successfully! Library saved to " + outputPath)
 }
 
+// promptInstall prompts the user whether to install a package
 func promptInstall(platform *Platform, pkg string) {
 	prompt := promptui.Select{
 		Label: "Install " + pkg + "?",
@@ -653,13 +714,14 @@ func promptInstall(platform *Platform, pkg string) {
 			fmt.Println("\nExiting...")
 			os.Exit(0)
 		}
-		cliError("Error getting selection: ", err)
+		cliError("Error getting selection", err)
 	}
 	if result == "Yes" {
 		platform.install(pkg)
 	}
 }
 
+// promptBuild prompts the user whether to build a package
 func promptBuild(platform *Platform, pkg string) {
 	prompt := promptui.Select{
 		Label: "Build " + pkg + " from source?",
@@ -672,7 +734,7 @@ func promptBuild(platform *Platform, pkg string) {
 			fmt.Println("\nExiting...")
 			os.Exit(0)
 		}
-		cliError("Error getting selection: ", err)
+		cliError("Error getting selection", err)
 	}
 	if result == "Yes" {
 		platform.build(pkg)

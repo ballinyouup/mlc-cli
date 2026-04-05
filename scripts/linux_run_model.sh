@@ -1,106 +1,95 @@
-#!/bin/bash
-set -e  # Exit on error
+#!/usr/bin/env bash
+set -eu
+
+# =============================================================================
+# Configuration
+# =============================================================================
+CLI_VENV="${1:-mlc-cli-venv}"
+MODEL_URL="${2:-}"
+MODEL_NAME="${3:-}"
+DEVICE="${4:-metal}"
+OVERRIDES="${5:-}"
+MODEL_LIB="${6:-}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)
+MODELS_DIR="${REPO_ROOT}/models"
+
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# =============================================================================
+# Pre-flight Checks
+# =============================================================================
+
+if ! command -v conda &> /dev/null; then
+    log_error "Conda is not installed"
+fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# Accept parameters
-CLI_VENV="${1:-mlc-cli-venv}"
-MODEL_URL="${2}"
-MODEL_NAME="${3}"
-DEVICE="${4:-cuda}"
-OVERRIDES="${5}"
-MODEL_LIB_PATH="${6}"
+if ! conda env list | grep -q "^${CLI_VENV})"; then
+    log_error "CLI environment '${CLI_VENV}' not found. Please run build first."
+fi
 
-# Set CUDA environment variables
-DEVICE_FLAG=""
-if [ "${DEVICE}" = "cuda" ]; then
-    # Dynamically find nvcc to set correct CUDA paths
-    if command -v nvcc > /dev/null 2>&1; then
-        NVCC_PATH="$(command -v nvcc)"
-    elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
-        NVCC_PATH="/usr/local/cuda/bin/nvcc"
-    else
-        echo "Error: nvcc not found. Please install the CUDA toolkit or add it to PATH."
-        exit 1
-    fi
-    NVCC_REAL="$(readlink -f "${NVCC_PATH}" 2>/dev/null || true)"
-    NVCC_REAL="${NVCC_REAL:-${NVCC_PATH}}"
-    CUDA_BIN_DIR="$(dirname "${NVCC_REAL}")"
-    CUDA_HOME="$(dirname "${CUDA_BIN_DIR}")"
-    export PATH="${CUDA_BIN_DIR}:${PATH}"
-    export CUDACXX="${NVCC_REAL}"
-    export CUDA_HOME="${CUDA_HOME}"
-    if [[ -d "${CUDA_HOME}/lib64" ]]; then
-        export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
-    fi
-    DEVICE_FLAG="--device cuda"
-elif [ "${DEVICE}" = "cpu" ] || [ "${DEVICE}" = "none" ] || [ -z "${DEVICE}" ]; then
-    DEVICE_FLAG=""
+# =============================================================================
+# Model Setup
+# =============================================================================
+
+mkdir -p "${MODELS_DIR}"
+
+# Clone model if URL provided
+if [[ -n "${MODEL_URL}" ]]; then
+    cd "${MODELS_DIR}"
+    log_info "Cloning model from ${MODEL_URL}..."
+    git clone --depth 1 "${MODEL_URL}" "$(basename "${MODEL_URL}")"
+    cd ..
+fi
+
+# Determine model path
+MODEL_PATH=""
+if [[ -n "${MODEL_NAME}" ]]; then
+    MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
 else
-    DEVICE_FLAG="--device ${DEVICE}"
+    log_error "Model name is required"
 fi
 
-conda activate ${CLI_VENV}
-mkdir -p models
-if [ -z "${MODEL_NAME}" ]; then
-    if [ -d "models" ]; then
-        MODEL_NAME=$(ls -1 models 2>/dev/null | head -n 1)
-    fi
-fi
-MODEL_PATH="models/${MODEL_NAME}"
+# =============================================================================
+# Run Model
+# =============================================================================
 
-# Clone model if URL is provided and model doesn't exist
-if [ -n "${MODEL_URL}" ]; then
-    if [ ! -d "${MODEL_PATH}" ]; then
-        echo "Cloning model from HuggingFace..."
-        cd models
-        git clone ${MODEL_URL}
-        cd ${MODEL_NAME}
-        git lfs pull
-        cd ../..
-    else
-        echo "Model already exists, skipping download..."
-    fi
-else
-    echo "Using local model: ${MODEL_NAME}"
+conda activate "${CLI_VENV}"
+
+log_info "Running model with MLC-LLM..."
+log_info "Model: ${MODEL_NAME}"
+log_info "Device: ${DEVICE}"
+
+# Build run command
+RUN_ARGS=(
+    "${CLI_VENV}" \
+    "${MODEL_PATH}" \
+    "${DEVICE}"
+)
+
+# Add overrides if provided
+if [[ -n "${OVERRIDES}" ]]; then
+    RUN_ARGS="${RUN_ARGS} --overrides ${OVERRIDES}"
 fi
 
-# Run the model
-if [ -z "${MODEL_NAME}" ] || [ ! -d "${MODEL_PATH}" ]; then
-    echo "Error: MODEL_NAME not provided or model directory not found: ${MODEL_PATH}"
-    echo "Available models:"
-    ls -1 models 2>/dev/null || true
-    conda deactivate
-    exit 1
-fi
-cd "${MODEL_PATH}"
-
-# Build the command arguments
-CMD_ARGS=(chat .)
-if [ -n "${DEVICE_FLAG}" ]; then
-    CMD_ARGS+=(${DEVICE_FLAG})
-fi
-if [ -n "${MODEL_LIB_PATH}" ]; then
-    CMD_ARGS+=(--model-lib "${MODEL_LIB_PATH}")
-fi
-if [ -n "${OVERRIDES}" ]; then
-    CMD_ARGS+=(--overrides "${OVERRIDES}")
+# Add model lib if provided
+if [[ -n "${MODEL_LIB}" ]]; then
+    RUN_ARGS="${RUN_ARGS} --model-lib ${MODEL_LIB}"
 fi
 
-# Run with or without JIT depending on whether a compiled library is provided
-if [ -n "${MODEL_LIB_PATH}" ]; then
-    echo "Using pre-compiled model library: ${MODEL_LIB_PATH}"
-    if command -v mlc_llm >/dev/null 2>&1; then
-        mlc_llm "${CMD_ARGS[@]}"
-    else
-        python -m mlc_llm "${CMD_ARGS[@]}"
-    fi
-else
-    if command -v mlc_llm >/dev/null 2>&1; then
-        MLC_JIT_POLICY=REDO mlc_llm "${CMD_ARGS[@]}"
-    else
-        MLC_JIT_POLICY=REDO python -m mlc_llm "${CMD_ARGS[@]}"
-    fi
-fi
+# Execute
+python -m mlc_llm.cli run ${RUN_ARGS}
 
+popd
 conda deactivate
+log_success "Model run completed!"

@@ -1,127 +1,121 @@
 #!/usr/bin/env bash
-set -e  # Exit on error
+set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WHEELS_DIR="${REPO_ROOT}/wheels"
-CUDA_COMPUTE_CAPABILITY="${1:-86}"
-TVM_SOURCE="${2:-bundled}"  # bundled or custom
+# =============================================================================
+# TVM Build Script for Linux
+# =============================================================================
+
+BUILD_VENV="${1:-tvm-build-venv}"
+TVM_SOURCE="${2:-bundled}"
 BUILD_WHEELS="${3:-y}"
 FORCE_CLONE="${4:-n}"
+CUDA_ARCH="${5:-86}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WHEELS_DIR="${REPO_ROOT}/wheels"
+TVM_DIR="${REPO_ROOT}/tvm"
+
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+cleanup_on_error() {
+    log_error "TVM build failed! Cleaning up..."
+    rm -rf "${TVM_DIR}/build" 2>/dev/null || true
+    rm -rf "${TVM_DIR}"
+}
+
+trap cleanup_on_error ERR
+
+# Check for conda
+if ! command -v conda &> /dev/null; then
+    log_error "Conda is not installed. Please install conda first."
+fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-conda env remove -y -n tvm-build-venv || true
-conda create -y -n tvm-build-venv -c conda-forge \
-    "llvmdev=19" \
-    "cmake>=3.24" \
-    git \
-    zstd \
-    python=3.13
+# =============================================================================
+# TVM Source Setup
+# =============================================================================
 
-conda activate tvm-build-venv
-
-# Set library path for linker to find zstd and libxml2
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
-
-# Determine TVM directory based on source selection
-if [ "${TVM_SOURCE}" = "custom" ]; then
-    TVM_DIR="${REPO_ROOT}/tvm"
-    echo "Using custom TVM from ${TVM_DIR}"
-    if [ ! -d "${TVM_DIR}" ]; then
-        echo "Error: Custom TVM directory not found at ${TVM_DIR}"
-        echo "Please clone TVM to ${TVM_DIR} or select bundled TVM option"
-        exit 1
-    fi
-elif [ "${TVM_SOURCE}" = "relax" ]; then
-    TVM_DIR="${REPO_ROOT}/tvm"
-    echo "Using mlc-ai/relax (mlc branch) at ${TVM_DIR}"
-    if [ "${FORCE_CLONE}" = "y" ] && [ -d "${TVM_DIR}" ]; then
-        echo "Force re-clone: removing existing ${TVM_DIR}..."
+if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
+    if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$TVM_DIR" ]; then
+        log_info "Force re-clone: removing existing TVM directory..."
         rm -rf "${TVM_DIR}"
     fi
-    if [ ! -d "${TVM_DIR}" ]; then
-        echo "Cloning mlc-ai/relax on mlc branch..."
-        git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_DIR}"
-    elif [ "$(git -C "${TVM_DIR}" rev-parse --abbrev-ref HEAD)" != "mlc" ]; then
-        echo "Switching TVM to mlc branch (mlc-ai/relax)..."
-        git -C "${TVM_DIR}" remote set-url origin https://github.com/mlc-ai/relax.git
-        git -C "${TVM_DIR}" fetch origin mlc
-        git -C "${TVM_DIR}" checkout mlc
-        git -C "${TVM_DIR}" submodule update --init --recursive
+    if [ ! -d "$TVM_DIR" ]; then
+        if [[ "$TVM_SOURCE" == "relax" ]]; then
+            log_info "Cloning mlc-ai/relax on mlc branch..."
+            git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_DIR}"
+        fi
     else
-        echo "TVM is already on mlc branch."
+        log_info "Using TVM from ${TVM_DIR}"
     fi
 else
-    # Clone mlc-llm if it doesn't exist (for bundled TVM)
-    MLC_LLM_DIR="${REPO_ROOT}/mlc-llm"
-    if [ "${FORCE_CLONE}" = "y" ] && [ -d "${MLC_LLM_DIR}" ]; then
-        echo "Force re-clone: removing existing ${MLC_LLM_DIR}..."
-        rm -rf "${MLC_LLM_DIR}"
-    fi
-    if [ ! -d "${MLC_LLM_DIR}" ]; then
-        echo "mlc-llm not found, cloning from https://github.com/mlc-ai/mlc-llm..."
-        git clone --recursive https://github.com/mlc-ai/mlc-llm "${MLC_LLM_DIR}"
-    fi
-    
-    TVM_DIR="${REPO_ROOT}/mlc-llm/3rdparty/tvm"
-    echo "Using bundled TVM from ${TVM_DIR}"
-    if [ ! -d "${TVM_DIR}" ]; then
-        echo "Error: Bundled TVM directory not found at ${TVM_DIR}"
-        echo "Initializing submodules..."
-        git -C "${MLC_LLM_DIR}" submodule update --init --recursive
-    fi
+    log_info "Will use bundled TVM (mlc-llm builds this internally)"
+    log_info "This script is typically called by linux_build_mlc.sh"
+    exit 0
 fi
 
-cd "${TVM_DIR}"
-# create the build directory
-rm -rf build && mkdir build && cd build
-# specify build requirements in `config.cmake`
-cp ../cmake/config.cmake .
+# =============================================================================
+# Conda Environment
+# =============================================================================
 
-# controls default compilation flags (use sed to replace existing values)
-sed -i 's/set(CMAKE_BUILD_TYPE .*/set(CMAKE_BUILD_TYPE Release)/' config.cmake
-# LLVM is a must dependency
-sed -i 's|set(USE_LLVM .*)|set(USE_LLVM "llvm-config --ignore-libllvm --link-static")|' config.cmake
-sed -i 's/set(HIDE_PRIVATE_SYMBOLS .*/set(HIDE_PRIVATE_SYMBOLS ON)/' config.cmake
-# GPU SDKs - enable Metal for macOS
-sed -i 's/set(USE_CUDA .*/set(USE_CUDA ON)/' config.cmake
-sed -i 's/set(USE_ROCM .*/set(USE_ROCM OFF)/' config.cmake
-sed -i 's/set(USE_METAL .*/set(USE_METAL OFF)/' config.cmake
-sed -i 's/set(USE_VULKAN .*/set(USE_VULKAN OFF)/' config.cmake
-sed -i 's/set(USE_OPENCL .*/set(USE_OPENCL OFF)/' config.cmake
+if conda env list | grep -q "^${BUILD_VENV})" &> /dev/null; then
+    log_info "Creating conda environment: ${BUILD_VENV}"
+    conda create -y -n "${BUILD_VENV}" -c conda-forge \
+        "cmake>=3.24" \
+        rust \
+        git \
+        python=3.11 \
+        pip
+else
+    log_info "Environment '${BUILD_VENV}' already exists, using it"
+fi
 
-# Below are options for CUDA, turn on if needed
-# CUDA_ARCH is the cuda compute capability of your GPU.
-# Examples: 89 for 4090, 90a for H100/H200, 100a for B200.
-# Reference: https://developer.nvidia.com/cuda-gpus
-sed -i "s/set(CMAKE_CUDA_ARCHITECTURES .*/set(CMAKE_CUDA_ARCHITECTURES ${CUDA_COMPUTE_CAPABILITY})/" config.cmake
-sed -i 's/set(USE_CUBLAS .*/set(USE_CUBLAS ON)/' config.cmake
-sed -i 's/set(USE_CUTLASS .*/set(USE_CUTLASS OFF)/' config.cmake # known compile failures on CUDA 12+
-sed -i 's/set(USE_THRUST .*/set(USE_THRUST OFF)/' config.cmake # known CHECK macro errors
-sed -i 's/set(USE_NVTX .*/set(USE_NVTX OFF)/' config.cmake
+conda activate "${BUILD_VENV}"
 
-cmake ..
-make -j$(nproc)
-cd ..
+# =============================================================================
+# Build TVM
+# =============================================================================
 
-if [ "${BUILD_WHEELS}" = "y" ]; then
-    # Build wheel and copy to wheels directory
+cd "${TVM_DIR}" || exit 1
+mkdir -p build
+cd build
+
+log_info "Configuring TVM build..."
+
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}"
+make -j"$(nproc)"
+log_success "TVM build completed!"
+
+# =============================================================================
+# Build Python Wheel (optional)
+# =============================================================================
+
+if [[ "${BUILD_WHEELS}" == "y" ]]; then
+    log_info "Building TVM Python wheel..."
     mkdir -p "${WHEELS_DIR}"
 
-    # Clean CMake cache and Makefiles to avoid Make/Ninja conflict
-    # but keep the compiled libraries in build/
-    cd build
-    rm -f Makefile CMakeCache.txt cmake_install.cmake
-    rm -rf CMakeFiles
-    cd ..
-
-    # Build TVM wheel from the tvm root directory (where pyproject.toml is)
-    python -m pip install build
+    cd "${TVM_DIR}"/python
+    python -m pip install --quiet build
     python -m build --wheel --outdir "${WHEELS_DIR}"
+    cd ../build
 
-    echo "TVM wheel created in ${WHEELS_DIR}"
+    log_success "TVM wheel created in ${WHEELS_DIR}"
 else
-    echo "Skipping TVM wheel build."
+    log_info "Skipping TVM wheel build"
 fi
 
+popd
+conda deactivate
+log_success "TVM build completed successfully!"

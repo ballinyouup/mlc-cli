@@ -1,63 +1,101 @@
-set -e 
+#!/usr/bin/env bash
+set -eu
 
-ENV_NAME="${1:-mlc-cli-venv}"
-MODEL_PATH="$2"
-QUANT_TYPE="$3"
-OUTPUT_DIR="$4"
-CONV_TEMPLATE="$5"
+# =============================================================================
+# Quantize Model Script
+# =============================================================================
 
-if [ -z "$MODEL_PATH" ]; then
-    echo "🔮 Interactive Mode (No arguments provided)"
-    read -p "Enter CLI Environment Name [mlc-cli-venv]: " input_env
-    ENV_NAME="${input_env:-mlc-cli-venv}"
-    
-    read -p "Enter Model Path: " MODEL_PATH
-    
-    echo "Select Quantization:"
-    select QUANT_TYPE in "q4f16_1" "q3f16_1" "q0f16"; do
-        [ -n "$QUANT_TYPE" ] && break
-    done
-    
-    read -p "Enter Output Directory [dist/model-output]: " input_out
-    OUTPUT_DIR="${input_out:-dist/model-output}"
-    
-    echo "Select Template:"
-    select CONV_TEMPLATE in "llama-3" "chatml" "mistral_default" "phi-2" "gemma" "qwen2"; do
-        [ -n "$CONV_TEMPLATE" ] && break
-    done
+CLI_VENV="${1:-mlc-cli-venv}"
+MODEL_PATH="${2:-}"
+QUANTIZATION="${3:-q4f16_1}"
+OUTPUT_PATH="${4:-}"
+CONV_TEMPLATE="${5:-llama-3}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# =============================================================================
+# Validate Inputs
+# =============================================================================
+
+if [[ -z "${MODEL_PATH}" ]]; then
+    log_error "Model path is required"
 fi
 
-if [ -z "$MODEL_PATH" ] || [ -z "$QUANT_TYPE" ] || [ -z "$CONV_TEMPLATE" ]; then
-    echo "❌ Error: Missing required arguments."
-    echo "Usage: $0 [ENV] [MODEL] [QUANT] [OUTPUT] [TEMPLATE]"
-    exit 1
+if [[ -z "${OUTPUT_PATH}" ]]; then
+    # Generate default output path
+    MODEL_NAME=$(basename "${MODEL_PATH}")
+    OUTPUT_PATH="dist/${MODEL_NAME}-${QUANTIZATION}-MLC"
+    log_info "Using default output path: ${OUTPUT_PATH}"
 fi
 
-echo "🚀 Starting Quantization: $QUANT_TYPE..."
+# =============================================================================
+# Activate Environment
+# =============================================================================
 
-
-CONDA_BASE=$(conda info --base)
-if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
-    source "$CONDA_BASE/etc/profile.d/conda.sh"
-else
-    echo "⚠️  Could not find conda.sh! Assuming conda is already in PATH."
+if ! command -v conda &> /dev/null; then
+    log_error "Conda is not installed"
 fi
 
-echo "🔌 Activating environment: $ENV_NAME"
-conda activate "$ENV_NAME"
+source "$(conda info --base)/etc/profile.d/conda.sh"
 
-echo "📦 Compressing weights..."
-python -m mlc_llm convert_weight "$MODEL_PATH" \
-    --quantization "$QUANT_TYPE" \
-    -o "$OUTPUT_DIR"
+if ! conda env list | grep -q "^${CLI_VENV})"; then
+    log_error "Environment '${CLI_VENV}' not found. Please build first."
+fi
 
-echo "📄 Generating chat config..."
-python -m mlc_llm gen_config "$MODEL_PATH" \
-    --quantization "$QUANT_TYPE" \
-    --conv-template "$CONV_TEMPLATE" \
-    -o "$OUTPUT_DIR"
+conda activate "${CLI_VENV}"
 
-echo "🔌 Deactivating environment..."
+# =============================================================================
+# Quantize Weights
+# =============================================================================
+
+log_info "Quantizing model weights..."
+log_info "  Model: ${MODEL_PATH}"
+log_info "  Quantization: ${QUANTIZATION}"
+log_info "  Output: ${OUTPUT_PATH}"
+
+mkdir -p "$(dirname "${OUTPUT_PATH}")"
+
+# Convert weights
+python -m mlc_llm convert_weight \
+    "${MODEL_PATH}" \
+    --quantization "${QUANTIZATION}" \
+    -o "${OUTPUT_PATH}"
+
+if [[ $? -ne 0 ]]; then
+    log_error "Weight conversion failed"
+fi
+
+# =============================================================================
+# Generate Config
+# =============================================================================
+
+log_info "Generating model config..."
+
+python -m mlc_llm gen_config \
+    "${MODEL_PATH}" \
+    --quantization "${QUANTIZATION}" \
+    --conv-template "${CONV_TEMPLATE}" \
+    -o "${OUTPUT_PATH}"
+
+if [[ $? -ne 0 ]]; then
+    log_error "Config generation failed"
+fi
+
+log_success "Quantization completed: ${OUTPUT_PATH}"
+log_info ""
+log_info "Next steps:"
+log_info "  1. Compile the model: ./mlc-cli compile --model ${OUTPUT_PATH}"
+log_info "  2. Run the model: ./mlc-cli run --model-name $(basename ${OUTPUT_PATH})"
+
+popd
 conda deactivate
-
-echo "✅ Quantization complete! Model saved to $OUTPUT_DIR"
