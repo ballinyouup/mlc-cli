@@ -11,7 +11,7 @@ BUILD_WHEELS="${3:-y}"
 FORCE_CLONE="${4:-n}"
 CUDA_ARCH="${5:-86}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 TVM_DIR="${REPO_ROOT}/tvm"

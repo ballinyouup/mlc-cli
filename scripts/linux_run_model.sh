@@ -11,8 +11,8 @@ DEVICE="${4:-metal}"
 OVERRIDES="${5:-}"
 MODEL_LIB="${6:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MODELS_DIR="${REPO_ROOT}/models"
 
 RED='\033[1;31m'
@@ -34,7 +34,7 @@ fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-if ! conda env list | grep -q "^${CLI_VENV})"; then
+if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_error "CLI environment '${CLI_VENV}' not found. Please run build first."
 fi
 

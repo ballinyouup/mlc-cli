@@ -11,8 +11,8 @@ QUANTIZATION="${3:-q4f16_1}"
 DEVICE="${4:-cuda}"
 OUTPUT_PATH="${5:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 RED='\033[1;31m'
 GREEN='\033[0;32m'
@@ -49,7 +49,7 @@ fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-if ! conda env list | grep -q "^${CLI_VENV})"; then
+if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_error "Conda environment '${CLI_VENV}' not found. Please build first."
 fi
 

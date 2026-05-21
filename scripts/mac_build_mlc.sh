@@ -16,7 +16,7 @@ FORCE_CLONE="${9:-n}"
 PYTHON_VERSION="${10:-3.13}"  # Configurable Python version
 
 NCORES="${11:-$(sysctl -n hw.ncpu)}"
-WHEELS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/..)/wheels"
+WHEELS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/wheels"
 MLC_LLM_DIR="$(pwd)/mlc-llm"
 TVM_SOURCE_DIR=""
 
@@ -128,7 +128,7 @@ log_info "Building in directory: ${MLC_LLM_DIR}"
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Check if environment exists
-if conda env list | grep -q "^BUILD_VENV)" & grep -q "build_env"; then
+if conda env list | grep -q "^${BUILD_VENV} " & grep -q "build_env"; then
     log_info "Environment '${BUILD_VENV}' already exists, using it"
 else
     log_info "Creating conda environment: ${BUILD_VENV}"

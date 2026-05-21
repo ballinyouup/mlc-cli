@@ -9,8 +9,8 @@ TVM_WHEEL="${2:-}"
 MLC_WHEEL="${3:-}"
 INSTALL_MODE="${4:-source}"  # source or wheel
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 
 RED='\033[1;31m'
@@ -41,7 +41,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 find_wheel() {
     local pattern="$1"
-    local wheels=($(ls "${WHEELS_DIR}"/${pattern}"*.whl 2>/dev/null))
+    local wheels=($(ls "${WHEELS_DIR}"/${pattern}*.whl 2>/dev/null))
     if [ ${#wheels[@]} -gt 0 ]; then
         echo "${wheels[0]}"
         return 0

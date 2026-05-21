@@ -11,7 +11,7 @@ DEVICE="${4:-metal}"
 OVERRIDES="${5:-}"
 MODEL_LIB="${6:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MODELS_DIR="${REPO_ROOT}/models"
 

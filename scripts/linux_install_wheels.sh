@@ -8,7 +8,7 @@ set -eu
 CLI_VENV="${1:-mlc-cli-venv}"
 WHEELS_DIR="${2:-wheels}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/${WHEELS_DIR}"
 
@@ -37,8 +37,8 @@ if [ ! -d "${WHEELS_DIR}" ]; then
 fi
 
 # Count wheels
-TVM_WHEELS=($(ls "${WHEELS_DIR}"/tvm"*.whl 2>/dev/null || true))
-MLC_WHEELS=($(ls "${WHEELS_DIR}"/mlc"*.whl 2>/dev/null || true))
+TVM_WHEELS=($(ls "${WHEELS_DIR}"/tvm*.whl 2>/dev/null || true))
+MLC_WHEELS=($(ls "${WHEELS_DIR}"/mlc*.whl 2>/dev/null || true))
 
 if [ ${#TVM_WHEELS[@]} -eq 0 ] && [ ${#MLC_WHEELS[@]} -eq 0 ]; then
     log_error "No wheels found in ${WHEELS_DIR}"
@@ -50,7 +50,7 @@ log_info "Found ${#TVM_WHEELS[@]} TVM wheels and ${#MLC_WHEELS[@]} MLC wheels"
 # Environment Setup
 # =============================================================================
 
-if ! conda env list | grep -q "^${CLI_VENV})"; then
+if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_info "Creating environment: ${CLI_VENV}"
     conda create -y -n "${CLI_VENV}" -c conda-forge python=3.11 pip
 else
