@@ -67,7 +67,7 @@ fi
 # Conda Environment
 # =============================================================================
 
-if conda env list | grep -q "^${BUILD_VENV})" &> /dev/null; then
+if ! conda env list | grep -q "^${BUILD_VENV} " &> /dev/null; then
     log_info "Creating conda environment: ${BUILD_VENV}"
     conda create -y -n "${BUILD_VENV}" -c conda-forge \
         "cmake>=3.24" \
@@ -116,6 +116,5 @@ else
     log_info "Skipping TVM wheel build"
 fi
 
-popd
 conda deactivate
 log_success "TVM build completed successfully!"

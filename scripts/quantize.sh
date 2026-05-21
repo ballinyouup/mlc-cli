@@ -97,5 +97,4 @@ log_info "Next steps:"
 log_info "  1. Compile the model: ./mlc-cli compile --model ${OUTPUT_PATH}"
 log_info "  2. Run the model: ./mlc-cli run --model-name $(basename ${OUTPUT_PATH})"
 
-popd
 conda deactivate

@@ -128,7 +128,7 @@ log_info "Building in directory: ${MLC_LLM_DIR}"
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Check if environment exists
-if conda env list | grep -q "^${BUILD_VENV} " & grep -q "build_env"; then
+if conda env list | grep -q "^${BUILD_VENV} "; then
     log_info "Environment '${BUILD_VENV}' already exists, using it"
 else
     log_info "Creating conda environment: ${BUILD_VENV}"
@@ -190,7 +190,6 @@ if [[ "${BUILD_WHEELS}" == "y" ]]; then
 else
     log_info "Skipping wheel build (BUILD_WHEELS=${BUILD_WHEELS})"
 fi
-popd
 conda deactivate
 log_success "MLC-LLM build completed successfully!"
 log_info ""

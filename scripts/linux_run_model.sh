@@ -46,18 +46,22 @@ mkdir -p "${MODELS_DIR}"
 
 # Clone model if URL provided
 if [[ -n "${MODEL_URL}" ]]; then
-    cd "${MODELS_DIR}"
-    log_info "Cloning model from ${MODEL_URL}..."
-    git clone --depth 1 "${MODEL_URL}" "$(basename "${MODEL_URL}")"
-    cd ..
-fi
-
-# Determine model path
-MODEL_PATH=""
-if [[ -n "${MODEL_NAME}" ]]; then
+    if [[ -z "${MODEL_NAME}" ]]; then
+        MODEL_NAME="$(basename "${MODEL_URL}")"
+    fi
     MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+    if [[ ! -d "${MODEL_PATH}" ]]; then
+        log_info "Cloning model from ${MODEL_URL}..."
+        git clone --depth 1 "${MODEL_URL}" "${MODEL_PATH}"
+    else
+        log_info "Model already exists at ${MODEL_PATH}"
+    fi
 else
-    log_error "Model name is required"
+    if [[ -n "${MODEL_NAME}" ]]; then
+        MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+    else
+        log_error "Model name is required"
+    fi
 fi
 
 # =============================================================================
@@ -72,24 +76,23 @@ log_info "Device: ${DEVICE}"
 
 # Build run command
 RUN_ARGS=(
-    "${CLI_VENV}" \
-    "${MODEL_PATH}" \
-    "${DEVICE}"
+    "chat"
+    "${MODEL_PATH}"
+    "--device" "${DEVICE}"
 )
 
 # Add overrides if provided
 if [[ -n "${OVERRIDES}" ]]; then
-    RUN_ARGS="${RUN_ARGS} --overrides ${OVERRIDES}"
+    RUN_ARGS+=("--overrides" "${OVERRIDES}")
 fi
 
 # Add model lib if provided
 if [[ -n "${MODEL_LIB}" ]]; then
-    RUN_ARGS="${RUN_ARGS} --model-lib ${MODEL_LIB}"
+    RUN_ARGS+=("--model-lib" "${MODEL_LIB}")
 fi
 
 # Execute
-python -m mlc_llm.cli run ${RUN_ARGS}
+python -m mlc_llm "${RUN_ARGS[@]}"
 
-popd
 conda deactivate
 log_success "Model run completed!"

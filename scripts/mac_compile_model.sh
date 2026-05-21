@@ -81,5 +81,4 @@ else
     log_error "Model compilation failed"
 fi
 
-popd
 conda deactivate

@@ -75,7 +75,6 @@ MLC_WHEEL_PATH=$(find_wheel "mlc")
 pip install --force "${MLC_WHEEL_PATH}"
 log_success "MLC wheel installed"
 
-popd
 conda deactivate
 
 log_success "Installation completed successfully!"

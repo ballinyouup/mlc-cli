@@ -86,7 +86,6 @@ log_info "Verifying installation..."
 python -c "import tvm; print(f'TVM version: {tvm.__version__}')" || log_warning "TVM import check failed"
 python -c "import mlc_llm; print('MLC-LLM imported successfully')" || log_warning "MLC-LLM import check failed"
 
-popd
 conda deactivate
 log_success "Wheel installation completed!"
 log_info ""

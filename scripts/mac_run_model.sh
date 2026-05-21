@@ -80,6 +80,5 @@ fi
 log_info "Running: mlc_llm ${MLC_ARGS}"
 python -m mlc_llm ${MLC_ARGS}
 
-popd
 conda deactivate
 log_success "Model run completed!"
