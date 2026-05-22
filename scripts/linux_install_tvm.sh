@@ -19,6 +19,7 @@ if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
         rust \
         git \
         python=3.11 \
+        pip \
         psutil
 fi
 
@@ -35,6 +36,7 @@ if [ "$PYTHON_VERSION" != "3.11" ]; then
         rust \
         git \
         python=3.11 \
+        pip \
         psutil
     conda activate "${CLI_VENV}"
 fi
@@ -44,7 +46,7 @@ fi
 # TVM ships inside the mlc_llm wheel instead, so this step is a no-op there.
 TVM_WHEELS=("${WHEELS_DIR}"/tvm-*.whl)
 if [[ -f "${TVM_WHEELS[0]}" ]]; then
-    pip install --force-reinstall "${TVM_WHEELS[0]}"
+    python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
 else
     echo "No standalone TVM wheel found in ${WHEELS_DIR} (bundled mode — skipping TVM wheel install)"
 fi

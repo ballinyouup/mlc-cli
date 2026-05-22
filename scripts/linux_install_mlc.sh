@@ -68,7 +68,7 @@ if [[ "${INSTALL_MODE}" == "source" ]]; then
     TVM_WHEELS=("${WHEELS_DIR}"/tvm-*.whl)
     if [[ -f "${TVM_WHEELS[0]}" ]]; then
         log_info "Installing TVM wheel first..."
-        pip install --force "${TVM_WHEELS[0]}"
+        python -m pip install --force "${TVM_WHEELS[0]}"
         log_success "TVM wheel installed"
     else
         log_info "No standalone TVM wheel found in ${WHEELS_DIR} (bundled mode — skipping TVM wheel install)"
@@ -78,7 +78,7 @@ fi
 # Install MLC wheel
 log_info "Installing MLC wheel..."
 MLC_WHEEL_PATH=$(find_wheel "mlc")
-pip install --force "${MLC_WHEEL_PATH}"
+python -m pip install --force "${MLC_WHEEL_PATH}"
 log_success "MLC wheel installed"
 
 conda deactivate
