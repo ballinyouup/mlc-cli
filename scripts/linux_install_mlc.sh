@@ -61,12 +61,18 @@ conda activate "${CLI_VENV}" || {
     exit 1
 }
 
-# Install TVM first if in source mode
+# Install TVM first if in source mode and a standalone TVM wheel exists.
+# In bundled mode linux_build_mlc.sh does not produce a tvm-*.whl; TVM is
+# embedded inside the mlc_llm wheel, so this step is skipped there.
 if [[ "${INSTALL_MODE}" == "source" ]]; then
-    log_info "Installing TVM wheel first..."
-    TVM_WHEEL_PATH=$(find_wheel "tvm")
-    pip install --force "${TVM_WHEEL_PATH}"
-    log_success "TVM wheel installed"
+    TVM_WHEELS=("${WHEELS_DIR}"/tvm-*.whl)
+    if [[ -f "${TVM_WHEELS[0]}" ]]; then
+        log_info "Installing TVM wheel first..."
+        pip install --force "${TVM_WHEELS[0]}"
+        log_success "TVM wheel installed"
+    else
+        log_info "No standalone TVM wheel found in ${WHEELS_DIR} (bundled mode — skipping TVM wheel install)"
+    fi
 fi
 
 # Install MLC wheel
