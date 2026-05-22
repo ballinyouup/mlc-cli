@@ -68,8 +68,13 @@ log_info "  Output: ${OUTPUT_PATH}"
 # Ensure output directory exists
 mkdir -p "$(dirname "${OUTPUT_PATH}")"
 
+# Export required environment variables for TVM and MLC
+export TVM_HOME="${REPO_ROOT}/tvm"
+export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
+export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
+
 # Run compilation
-mlc_llm compile \
+python -m mlc_llm compile \
     "${MODEL_PATH}" \
     --quantization "${QUANTIZATION}" \
     --device "${DEVICE}" \

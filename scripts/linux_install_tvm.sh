@@ -20,6 +20,7 @@ if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
         git \
         python=3.11 \
         pip \
+        pytest \
         psutil
 fi
 
@@ -37,6 +38,7 @@ if [ "$PYTHON_VERSION" != "3.11" ]; then
         git \
         python=3.11 \
         pip \
+        pytest \
         psutil
     conda activate "${CLI_VENV}"
 fi

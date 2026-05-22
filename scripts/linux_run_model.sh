@@ -95,6 +95,11 @@ if [[ -n "${MODEL_LIB}" ]]; then
     RUN_ARGS+=("--model-lib" "${MODEL_LIB}")
 fi
 
+# Export required environment variables for TVM and MLC
+export TVM_HOME="${REPO_ROOT}/tvm"
+export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
+export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
+
 # Execute via conda run so stdin/stdout stream correctly (--no-capture-output)
 "${CONDA_BIN}" run --no-capture-output -n "${CLI_VENV}" \
     python -m mlc_llm "${RUN_ARGS[@]}"

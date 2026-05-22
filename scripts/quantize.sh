@@ -65,6 +65,11 @@ log_info "  Output: ${OUTPUT_PATH}"
 
 mkdir -p "$(dirname "${OUTPUT_PATH}")"
 
+# Export required environment variables for TVM and MLC
+export TVM_HOME="${REPO_ROOT}/tvm"
+export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
+export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
+
 # Convert weights
 python -m mlc_llm convert_weight \
     "${MODEL_PATH}" \
