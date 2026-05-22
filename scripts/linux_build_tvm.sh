@@ -106,10 +106,9 @@ if [[ "${BUILD_WHEELS}" == "y" ]]; then
     log_info "Building TVM Python wheel..."
     mkdir -p "${WHEELS_DIR}"
 
-    cd "${TVM_DIR}"/python
+    cd "${TVM_DIR}"
     python -m pip install --quiet build
     python -m build --wheel --outdir "${WHEELS_DIR}"
-    cd ../build
 
     log_success "TVM wheel created in ${WHEELS_DIR}"
 else
