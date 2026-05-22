@@ -41,44 +41,51 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 mkdir -p "${MODELS_DIR}"
 
 if [[ -n "${MODEL_URL}" ]]; then
-    log_info "Cloning model from ${MODEL_URL}..."
-    cd "${MODELS_DIR}"
-    git clone --depth 1 "${MODEL_URL}" "$(basename "${MODEL_URL}")"
-    cd ..
-fi
-
-# Determine model path
-if [[ -n "${MODEL_NAME}" ]]; then
+    if [[ -z "${MODEL_NAME}" ]]; then
+        MODEL_NAME="$(basename "${MODEL_URL}")"
+    fi
     MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+    if [[ ! -d "${MODEL_PATH}" ]]; then
+        log_info "Cloning model from ${MODEL_URL}..."
+        git clone --depth 1 "${MODEL_URL}" "${MODEL_PATH}"
+    else
+        log_info "Model already exists at ${MODEL_PATH}"
+    fi
 else
-    log_error "Model name is required"
+    if [[ -n "${MODEL_NAME}" ]]; then
+        MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+    else
+        log_error "Model name is required"
+    fi
 fi
 
 # =============================================================================
 # Activate Environment and Run
 # =============================================================================
 
-conda activate "${CLI_VENV}"
+CONDA_BASE="$(conda info --base)"
+CONDA_BIN="${CONDA_BASE}/bin/conda"
 
 log_info "Running model: ${MODEL_NAME} on ${DEVICE}"
 
 # Build MLC CLI command
+# conda activate silently fails in non-interactive subshells; use conda run.
 MLC_ARGS=(
-    "chat" \
-    "${MODEL_PATH}" \
+    "chat"
+    "${MODEL_PATH}"
     "--device" "${DEVICE}"
 )
 
 if [[ -n "${OVERRIDES}" ]]; then
-    MLC_ARGS="${MLC_ARGS} --overrides ${OVERRIDES}"
+    MLC_ARGS+=("--overrides" "${OVERRIDES}")
 fi
 
 if [[ -n "${MODEL_LIB}" ]]; then
-    MLC_ARGS="${MLC_ARGS} --model-lib-path ${MODEL_LIB}"
+    MLC_ARGS+=("--model-lib" "${MODEL_LIB}")
 fi
 
-log_info "Running: mlc_llm ${MLC_ARGS}"
-python -m mlc_llm ${MLC_ARGS}
+log_info "Running: mlc_llm ${MLC_ARGS[*]}"
+"${CONDA_BIN}" run --no-capture-output -n "${CLI_VENV}" \
+    python -m mlc_llm "${MLC_ARGS[@]}"
 
-conda deactivate
 log_success "Model run completed!"

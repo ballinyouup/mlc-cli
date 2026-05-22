@@ -68,13 +68,17 @@ fi
 # Run Model
 # =============================================================================
 
-conda activate "${CLI_VENV}"
+CONDA_BASE="$(conda info --base)"
+CONDA_BIN="${CONDA_BASE}/bin/conda"
 
 log_info "Running model with MLC-LLM..."
 log_info "Model: ${MODEL_NAME}"
 log_info "Device: ${DEVICE}"
 
 # Build run command
+# conda activate silently fails in non-interactive subshells (CONDA_PREFIX stays
+# empty, python resolves to /usr/bin/python).  Use `conda run` instead, which
+# correctly invokes the env's own Python without requiring an interactive shell.
 RUN_ARGS=(
     "chat"
     "${MODEL_PATH}"
@@ -91,8 +95,8 @@ if [[ -n "${MODEL_LIB}" ]]; then
     RUN_ARGS+=("--model-lib" "${MODEL_LIB}")
 fi
 
-# Execute
-python -m mlc_llm "${RUN_ARGS[@]}"
+# Execute via conda run so stdin/stdout stream correctly (--no-capture-output)
+"${CONDA_BIN}" run --no-capture-output -n "${CLI_VENV}" \
+    python -m mlc_llm "${RUN_ARGS[@]}"
 
-conda deactivate
 log_success "Model run completed!"
