@@ -12,14 +12,13 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 CLI_VENV="${1:-mlc-cli-venv}"
 
 # Create environment if it doesn't exist
-# python_abi=3.13=*_cp313 for flash-infer
+# Python version must match the build env (mlc-build-venv uses 3.11 → cp311 wheels)
 if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
     conda create -y -n "${CLI_VENV}" -c conda-forge \
         "cmake>=3.24" \
         rust \
         git \
-        python=3.13 \
-        "python_abi=3.13=*_cp313" \
+        python=3.11 \
         psutil
 fi
 
@@ -27,16 +26,15 @@ conda activate "${CLI_VENV}"
 
 # Check if Python version is correct, recreate if not
 PYTHON_VERSION=$(python --version | awk '{print $2}' | cut -d. -f1,2)
-if [ "$PYTHON_VERSION" != "3.13" ]; then
-    echo "Warning: Environment has Python $PYTHON_VERSION, but Python 3.13 is required. Recreating..."
+if [ "$PYTHON_VERSION" != "3.11" ]; then
+    echo "Warning: Environment has Python $PYTHON_VERSION, but Python 3.11 is required. Recreating..."
     conda deactivate
     conda env remove -n "${CLI_VENV}" -y
     conda create -y -n "${CLI_VENV}" -c conda-forge \
         "cmake>=3.24" \
         rust \
         git \
-        python=3.13 \
-        "python_abi=3.13=*_cp313" \
+        python=3.11 \
         psutil
     conda activate "${CLI_VENV}"
 fi
