@@ -41,5 +41,12 @@ if [ "$PYTHON_VERSION" != "3.13" ]; then
     conda activate "${CLI_VENV}"
 fi
 
-# Install pre-built wheels from wheels directory
-pip install --force-reinstall "${WHEELS_DIR}"/tvm-*.whl
+# Install pre-built TVM wheel if one was built (relax/custom TVM source modes).
+# In bundled mode linux_build_mlc.sh does not produce a standalone TVM wheel;
+# TVM ships inside the mlc_llm wheel instead, so this step is a no-op there.
+TVM_WHEELS=("${WHEELS_DIR}"/tvm-*.whl)
+if [[ -f "${TVM_WHEELS[0]}" ]]; then
+    pip install --force-reinstall "${TVM_WHEELS[0]}"
+else
+    echo "No standalone TVM wheel found in ${WHEELS_DIR} (bundled mode — skipping TVM wheel install)"
+fi
