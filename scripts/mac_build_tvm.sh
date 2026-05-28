@@ -21,6 +21,7 @@ conda create -y -n ${BUILD_VENV} -c "${CONDA_CHANNEL}" \
     "cmake>=${CMAKE_MIN_VERSION}" \
     git \
     zstd \
+    "${PYTHON_PACKAGE_SPEC}" \
     "${PYTHON_ABI_SPEC}"
 
 conda activate ${BUILD_VENV}

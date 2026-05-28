@@ -25,8 +25,12 @@ PYTHON_VERSION="3.11"
 # PYTHON_CP_TAG: e.g. "cp311" from "3.11"
 PYTHON_CP_TAG="cp$(echo "${PYTHON_VERSION}" | tr -d '.')"
 
-# PYTHON_ABI_SPEC: conda-style spec, e.g. "python=3.11"
-PYTHON_ABI_SPEC="python=${PYTHON_VERSION}"
+# PYTHON_PACKAGE_SPEC chooses the Python version.
+PYTHON_PACKAGE_SPEC="python=${PYTHON_VERSION}"
+
+# PYTHON_ABI_SPEC chooses the CPython ABI tag, e.g. cp311 or cp313.
+# This prevents Python 3.13 from resolving to free-threading cp313t when we need cp313 wheels.
+PYTHON_ABI_SPEC="python_abi=${PYTHON_VERSION}=*_${PYTHON_CP_TAG}"
 
 # -----------------------------------------------------------------------------
 # MLC-LLM repository

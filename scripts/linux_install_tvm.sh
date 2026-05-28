@@ -19,6 +19,7 @@ if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
+        "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
         pip \
         pytest \
@@ -37,6 +38,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
+        "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
         pip \
         pytest \

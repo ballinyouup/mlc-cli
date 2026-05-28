@@ -55,6 +55,7 @@ if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_info "Creating environment: ${CLI_VENV}"
     conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
+        "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
         pip
 else

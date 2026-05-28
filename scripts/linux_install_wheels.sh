@@ -53,7 +53,7 @@ log_info "Found ${#TVM_WHEELS[@]} TVM wheels and ${#MLC_WHEELS[@]} MLC wheels"
 
 if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_info "Creating environment: ${CLI_VENV}"
-    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" "${PYTHON_ABI_SPEC}" pip
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" "${PYTHON_PACKAGE_SPEC}" "${PYTHON_ABI_SPEC}" pip
 else
     log_info "Using existing environment: ${CLI_VENV}"
 fi

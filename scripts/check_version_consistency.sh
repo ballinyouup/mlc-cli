@@ -95,7 +95,7 @@ echo ""
 # =============================================================================
 search_scripts \
     'python=3\.[0-9]\+[^$"{]' \
-    "No hardcoded python=X.Y in scripts (use PYTHON_VERSION / PYTHON_ABI_SPEC)"
+    "No hardcoded python=X.Y in scripts (use PYTHON_PACKAGE_SPEC / PYTHON_ABI_SPEC)"
 
 # =============================================================================
 # Check 2: No hardcoded MLC-LLM GitHub URL (outside allowed files)

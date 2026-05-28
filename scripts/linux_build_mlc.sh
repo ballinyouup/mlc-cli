@@ -188,6 +188,7 @@ else
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
+        "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
         pip \
         git-lfs
