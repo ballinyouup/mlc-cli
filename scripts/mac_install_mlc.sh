@@ -3,6 +3,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 
@@ -14,45 +16,47 @@ TVM_SOURCE="${2:-bundled}"  # bundled, relax, or custom
 INSTALL_MODE="${3:-wheel}"  # source (editable from repo) or wheel (pre-built)
 
 if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
-    conda create -n "${CLI_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.13 \
-        psutil
+        "${PYTHON_ABI_SPEC}" \
+        psutil \
+        pip
 fi
 
 conda activate "${CLI_VENV}"
 
-# Verify Python version matches wheel requirement
-PYTHON_VERSION=$(python --version | awk '{print $2}' | cut -d. -f1,2)
-if [ "$PYTHON_VERSION" != "3.13" ]; then
-    echo "Error: mlc-cli-venv has Python $PYTHON_VERSION but wheel requires Python 3.13"
+# Verify Python version matches wheel requirement (from versions.sh)
+PY_VERSION_INSTALLED=$(python --version | awk '{print $2}' | cut -d. -f1,2)
+if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
+    echo "Error: mlc-cli-venv has Python $PY_VERSION_INSTALLED but wheel requires Python ${PYTHON_VERSION}"
     echo "Recreating environment with correct Python version..."
     conda deactivate
     conda env remove -n "${CLI_VENV}" -y
-    conda create -n "${CLI_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.13 \
-        psutil -y
+        "${PYTHON_ABI_SPEC}" \
+        psutil \
+        pip -y
     conda activate "${CLI_VENV}"
 fi
 
 # Install TVM wheel first (MLC depends on TVM at runtime)
 if ls "${WHEELS_DIR}"/tvm-*.whl 1>/dev/null 2>&1; then
     echo "Installing TVM wheel (dependency for MLC)..."
-    pip install --force-reinstall "${WHEELS_DIR}"/tvm-*.whl
+    python -m pip install --force-reinstall "${WHEELS_DIR}"/tvm-*.whl
 else
     echo "Warning: No TVM wheel found in ${WHEELS_DIR}. MLC may fail if TVM is not already installed."
 fi
 
 # install MLC Python package
 if [ "${INSTALL_MODE}" = "wheel" ]; then
-    pip install --force-reinstall "${WHEELS_DIR}"/mlc_llm-*.whl
+    python -m pip install --force-reinstall "${WHEELS_DIR}"/mlc_llm-*.whl
 else
     cd mlc-llm/python
-    pip install -e .
+    python -m pip install -e .
     cd ../..
 fi

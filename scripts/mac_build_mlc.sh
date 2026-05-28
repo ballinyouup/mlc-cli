@@ -4,6 +4,12 @@ set -eu
 # =============================================================================
 # Configuration
 # =============================================================================
+
+# Load central version/dependency configuration first so PYTHON_VERSION etc. are
+# available as defaults for the positional arguments below.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 BUILD_VENV="${1:-mlc-build-venv}"
 CUDA="${2:-n}"         # Not typically used on macOS
 ROCM="${3:-n}"
@@ -13,7 +19,9 @@ OPENCL="${6:-n}"
 TVM_SOURCE="${7:-bundled}"  # bundled, relax, or custom
 BUILD_WHEELS="${8:-y}"
 FORCE_CLONE="${9:-n}"
-PYTHON_VERSION="${10:-3.13}"  # Configurable Python version
+# Python version: controlled by scripts/config/versions.sh (PYTHON_VERSION)
+# Override via positional arg 10 only if you need a one-off local change.
+MLC_PYTHON_VERSION="${10:-${PYTHON_VERSION}}"
 
 NCORES="${11:-$(sysctl -n hw.ncpu)}"
 WHEELS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/wheels"
@@ -95,8 +103,8 @@ if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
     fi
     if [ ! -d "$TVM_SOURCE_DIR" ]; then
         if [[ "$TVM_SOURCE" == "relax" ]]; then
-            log_info "Cloning mlc-ai/relax on mlc branch..."
-            git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_SOURCE_DIR}"
+            log_info "Cloning ${TVM_REPO} ref=${TVM_REF}..."
+            git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_SOURCE_DIR}"
         fi
     else
         log_info "Using TVM from ${TVM_SOURCE_DIR}"
@@ -116,7 +124,7 @@ if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$MLC_LLM_DIR" ]; then
 fi
 if [ ! -d "$MLC_LLM_DIR" ]; then
     log_info "Cloning mlc-llm..."
-    git clone --recursive https://github.com/mlc-ai/mlc-llm.git mlc-llm
+    git clone --recursive "${MLC_LLM_REPO}" mlc-llm
 fi
 cd "${MLC_LLM_DIR}" || exit 1
 
@@ -132,12 +140,12 @@ if conda env list | grep -q "^${BUILD_VENV} "; then
     log_info "Environment '${BUILD_VENV}' already exists, using it"
 else
     log_info "Creating conda environment: ${BUILD_VENV}"
-    conda create -y -n "${BUILD_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -y -n "${BUILD_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
         zstd \
-        python="${PYTHON_VERSION}"
+        "python=${MLC_PYTHON_VERSION}"
 fi
 
 conda activate "${BUILD_VENV}"

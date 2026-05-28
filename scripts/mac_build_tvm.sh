@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
 set -e  # Exit on error
 
+# Load central version/dependency configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 # Args
 BUILD_VENV="${1:-tvm-build-venv}"
 TVM_SOURCE="${2:-bundled}"  # bundled or custom
 BUILD_WHEELS="${3:-y}"
 FORCE_CLONE="${4:-n}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-conda create -y -n ${BUILD_VENV} -c conda-forge \
+conda create -y -n ${BUILD_VENV} -c "${CONDA_CHANNEL}" \
     "llvmdev=19" \
-    "cmake>=3.24" \
+    "cmake>=${CMAKE_MIN_VERSION}" \
     git \
     zstd \
-    python=3.13
+    "${PYTHON_ABI_SPEC}"
 
 conda activate ${BUILD_VENV}
 
@@ -42,11 +45,11 @@ elif [ "${TVM_SOURCE}" = "relax" ]; then
         rm -rf "${TVM_DIR}"
     fi
     if [ ! -d "${TVM_DIR}" ]; then
-        echo "Cloning mlc-ai/relax on mlc branch..."
-        git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_DIR}"
+        echo "Cloning ${TVM_REPO} ref=${TVM_REF}..."
+        git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_DIR}"
     elif [ "$(git -C "${TVM_DIR}" rev-parse --abbrev-ref HEAD)" != "mlc" ]; then
         echo "Switching TVM to mlc branch (mlc-ai/relax)..."
-        git -C "${TVM_DIR}" remote set-url origin https://github.com/mlc-ai/relax.git
+        git -C "${TVM_DIR}" remote set-url origin "${TVM_REPO}"
         git -C "${TVM_DIR}" fetch origin mlc
         git -C "${TVM_DIR}" checkout mlc
         git -C "${TVM_DIR}" submodule update --init --recursive
@@ -61,8 +64,8 @@ else
         rm -rf "${MLC_LLM_DIR}"
     fi
     if [ ! -d "${MLC_LLM_DIR}" ]; then
-        echo "mlc-llm not found, cloning from https://github.com/mlc-ai/mlc-llm..."
-        git clone --recursive https://github.com/mlc-ai/mlc-llm "${MLC_LLM_DIR}"
+        echo "mlc-llm not found, cloning from ${MLC_LLM_REPO}..."
+        git clone --recursive "${MLC_LLM_REPO}" "${MLC_LLM_DIR}"
     fi
     
     TVM_DIR="${REPO_ROOT}/mlc-llm/3rdparty/tvm"
@@ -107,7 +110,7 @@ if [ "${BUILD_WHEELS}" = "y" ]; then
     cd ..
 
     # Build TVM wheel from the tvm root directory (where pyproject.toml is)
-    pip install build
+    python -m pip install build
     python -m build --wheel --outdir "${WHEELS_DIR}"
 
     echo "TVM wheels created in ${WHEELS_DIR}"

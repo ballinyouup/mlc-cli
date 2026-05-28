@@ -10,6 +10,10 @@
 
 set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
+# Load central version/dependency configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 # =============================================================================
 # Script Arguments (with defaults)
 # =============================================================================
@@ -21,8 +25,8 @@ ROCM="${5:-n}"
 VULKAN="${6:-n}"
 OPENCL="${7:-n}"
 FLASHINFER="${8:-n}"
-CUDA_ARCH="${9:-86}"
-GITHUB_REPO="${10:-https://github.com/mlc-ai/mlc-llm}"
+CUDA_ARCH="${9:-${CUDA_ARCH_DEFAULT}}"
+GITHUB_REPO="${10:-${MLC_LLM_REPO}}"
 TVM_SOURCE="${11:-bundled}"  # bundled, relax, or custom
 BUILD_WHEELS="${12:-y}"
 FORCE_CLONE="${13:-n}"
@@ -30,7 +34,6 @@ FORCE_CLONE="${13:-n}"
 # =============================================================================
 # Variables and Paths
 # =============================================================================
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 MLC_LLM_DIR="${REPO_ROOT}/mlc-llm"
@@ -135,10 +138,10 @@ if [[ "${TVM_SOURCE}" == "relax" ]]; then
 
     if [[ ! -d "${TVM_SOURCE_DIR}" ]]; then
         log_info "Cloning mlc-ai/relax on mlc branch..."
-        git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_SOURCE_DIR}"
+        git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_SOURCE_DIR}"
     elif [[ "$(git -C "${TVM_SOURCE_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')" != "mlc" ]]; then
         log_info "Switching TVM to mlc branch (mlc-ai/relax)..."
-        git -C "${TVM_SOURCE_DIR}" remote set-url origin https://github.com/mlc-ai/relax.git
+        git -C "${TVM_SOURCE_DIR}" remote set-url origin "${TVM_REPO}"
         git -C "${TVM_SOURCE_DIR}" fetch origin mlc
         git -C "${TVM_SOURCE_DIR}" checkout mlc
         git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
@@ -181,11 +184,11 @@ if conda env list | grep -q "^${BUILD_VENV} "; then
     log_info "Environment ${BUILD_VENV} already exists, updating..."
 else
     log_info "Creating new environment ${BUILD_VENV}..."
-    conda create -n "${BUILD_VENV}" -c conda-forge --yes \
-        "cmake>=3.24" \
+    conda create -n "${BUILD_VENV}" -c "${CONDA_CHANNEL}" --yes \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.11 \
+        "${PYTHON_ABI_SPEC}" \
         pip \
         git-lfs
 fi

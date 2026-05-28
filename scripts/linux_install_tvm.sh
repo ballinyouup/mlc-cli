@@ -3,6 +3,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 
@@ -11,14 +13,13 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # Args
 CLI_VENV="${1:-mlc-cli-venv}"
 
-# Create environment if it doesn't exist
-# Python version must match the build env (mlc-build-venv uses 3.11 → cp311 wheels)
+# Python version must match the build env (mlc-build-venv) — see scripts/config/versions.sh
 if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
-    conda create -y -n "${CLI_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.11 \
+        "${PYTHON_ABI_SPEC}" \
         pip \
         pytest \
         psutil
@@ -27,16 +28,16 @@ fi
 conda activate "${CLI_VENV}"
 
 # Check if Python version is correct, recreate if not
-PYTHON_VERSION=$(python --version | awk '{print $2}' | cut -d. -f1,2)
-if [ "$PYTHON_VERSION" != "3.11" ]; then
-    echo "Warning: Environment has Python $PYTHON_VERSION, but Python 3.11 is required. Recreating..."
+PY_VERSION_INSTALLED=$(python --version | awk '{print $2}' | cut -d. -f1,2)
+if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
+    echo "Warning: Environment has Python $PY_VERSION_INSTALLED, but Python ${PYTHON_VERSION} is required. Recreating..."
     conda deactivate
     conda env remove -n "${CLI_VENV}" -y
-    conda create -y -n "${CLI_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.11 \
+        "${PYTHON_ABI_SPEC}" \
         pip \
         pytest \
         psutil

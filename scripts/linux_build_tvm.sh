@@ -5,13 +5,17 @@ set -eu
 # TVM Build Script for Linux
 # =============================================================================
 
+# Load central version/dependency configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 BUILD_VENV="${1:-tvm-build-venv}"
 TVM_SOURCE="${2:-bundled}"
 BUILD_WHEELS="${3:-y}"
 FORCE_CLONE="${4:-n}"
-CUDA_ARCH="${5:-86}"
+CUDA_ARCH="${5:-${CUDA_ARCH_DEFAULT}}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# SCRIPT_DIR already set above when sourcing versions.sh
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 TVM_DIR="${REPO_ROOT}/tvm"
@@ -51,8 +55,8 @@ if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
     fi
     if [ ! -d "$TVM_DIR" ]; then
         if [[ "$TVM_SOURCE" == "relax" ]]; then
-            log_info "Cloning mlc-ai/relax on mlc branch..."
-            git clone --recursive -b mlc https://github.com/mlc-ai/relax.git "${TVM_DIR}"
+            log_info "Cloning ${TVM_REPO} ref=${TVM_REF}..."
+            git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_DIR}"
         fi
     else
         log_info "Using TVM from ${TVM_DIR}"
@@ -69,11 +73,11 @@ fi
 
 if ! conda env list | grep -q "^${BUILD_VENV} " &> /dev/null; then
     log_info "Creating conda environment: ${BUILD_VENV}"
-    conda create -y -n "${BUILD_VENV}" -c conda-forge \
-        "cmake>=3.24" \
+    conda create -y -n "${BUILD_VENV}" -c "${CONDA_CHANNEL}" \
+        "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
-        python=3.11 \
+        "${PYTHON_ABI_SPEC}" \
         pip
 else
     log_info "Environment '${BUILD_VENV}' already exists, using it"

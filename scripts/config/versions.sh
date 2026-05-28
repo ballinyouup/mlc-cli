@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# =============================================================================
+# scripts/config/versions.sh — Central version/dependency configuration
+# =============================================================================
+# Source this file from any build or install script to get consistent values:
+#
+#   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#   source "${SCRIPT_DIR}/config/versions.sh"
+#
+# Do NOT hardcode Python versions, repo URLs, CUDA arch, or conda channel
+# in individual scripts. Change them here instead.
+#
+# Matching Go constants live in versions_defaults.go — keep them in sync.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python version
+# -----------------------------------------------------------------------------
+# Must match the build environment (mlc-build-venv) so that produced cp* wheels
+# are installable in the CLI environment (mlc-cli-venv) without ABI mismatch.
+# To switch to a different Python version, change PYTHON_VERSION here only.
+PYTHON_VERSION="3.11"
+
+# Derived values — do not edit these; edit PYTHON_VERSION above.
+# PYTHON_CP_TAG: e.g. "cp311" from "3.11"
+PYTHON_CP_TAG="cp$(echo "${PYTHON_VERSION}" | tr -d '.')"
+
+# PYTHON_ABI_SPEC: conda-style spec, e.g. "python=3.11"
+PYTHON_ABI_SPEC="python=${PYTHON_VERSION}"
+
+# -----------------------------------------------------------------------------
+# MLC-LLM repository
+# -----------------------------------------------------------------------------
+MLC_LLM_REPO="https://github.com/mlc-ai/mlc-llm"
+
+# TODO: pin to a known-good commit or tag once one is validated.
+# Leave empty to clone/use the default branch HEAD.
+# If non-empty, scripts that clone MLC_LLM_REPO will checkout this ref.
+MLC_LLM_REF=""
+
+# -----------------------------------------------------------------------------
+# TVM / mlc-ai/relax repository (used in relax TVM source mode)
+# -----------------------------------------------------------------------------
+TVM_REPO="https://github.com/mlc-ai/relax.git"
+TVM_REF="mlc"   # branch name; switch to a commit SHA once one is validated
+
+# TODO: pin TVM_REF to a specific commit SHA once a known-good one is confirmed.
+# For now "mlc" (branch) is the working default.
+
+# -----------------------------------------------------------------------------
+# Conda channel and cmake minimum version
+# -----------------------------------------------------------------------------
+CONDA_CHANNEL="conda-forge"
+
+# Minimum cmake version required by mlc-llm's CMakeLists.
+# Scripts use this as: "cmake>=${CMAKE_MIN_VERSION}"
+# (The variable holds only the version number; the ">=" operator goes in each
+# conda create call so the intent is unambiguous.)
+CMAKE_MIN_VERSION="3.24"
+
+# Packages included in every conda create call.
+# Scripts may append extra platform-specific packages after sourcing this file.
+CONDA_BASE_PKGS=(
+    "cmake>=${CMAKE_MIN_VERSION}"
+    "rust"
+    "git"
+    "pip"
+)
+
+# -----------------------------------------------------------------------------
+# CUDA default architecture  (Linux/CUDA only — ignored on macOS)
+# -----------------------------------------------------------------------------
+# SM86 covers: RTX 30xx consumer Ampere, A10, A30, A40, RTX A-series.
+# NOTE: A100 is SM80, NOT SM86. H100 is SM90.
+#
+# This default targets RTX 30xx / A10. You MUST override it to match
+# your actual GPU:
+#   SM70 = V100          SM80 = A100       SM86 = RTX 30xx / A10
+#   SM89 = RTX 40xx      SM90 = H100/H200
+#
+# Override via the CUDA_ARCH build argument or by changing this value.
+CUDA_ARCH_DEFAULT="86"

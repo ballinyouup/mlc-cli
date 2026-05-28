@@ -174,7 +174,7 @@ func (p *Platform) run() {
 func (p *Platform) ConfigureGitHubRepo() {
 	gitHubRepoPrompt := promptui.Prompt{
 		Label:   "Enter GitHub repository URL",
-		Default: "https://github.com/mlc-ai/mlc-llm",
+		Default: DefaultMlcLLMRepo,
 	}
 	var err error
 	p.GitHubRepo, err = gitHubRepoPrompt.Run()
@@ -266,7 +266,7 @@ func (p *Platform) ConfigureBuildOptions() {
 		if p.CUDA == "y" {
 			cudaArchPrompt := promptui.Prompt{
 				Label:   "Enter CUDA compute capability (e.g., 86 for RTX 3060)",
-				Default: "86",
+				Default: DefaultCUDAArch,
 			}
 			var err error
 			p.CUDAArch, err = cudaArchPrompt.Run()
@@ -282,7 +282,7 @@ func (p *Platform) ConfigureBuildOptions() {
 			p.Cutlass = "n"
 			p.CuBLAS = "n"
 			p.FlashInfer = "n"
-			p.CUDAArch = "86"
+			p.CUDAArch = DefaultCUDAArch
 		}
 
 		p.ROCM = promptYesNo("Enable ROCm support?")

@@ -5,10 +5,11 @@ set -eu
 # Install Pre-built Wheels Script for Linux
 # =============================================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/config/versions.sh"
+
 CLI_VENV="${1:-mlc-cli-venv}"
 WHEELS_DIR="${2:-wheels}"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/${WHEELS_DIR}"
 
@@ -52,7 +53,7 @@ log_info "Found ${#TVM_WHEELS[@]} TVM wheels and ${#MLC_WHEELS[@]} MLC wheels"
 
 if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_info "Creating environment: ${CLI_VENV}"
-    conda create -y -n "${CLI_VENV}" -c conda-forge python=3.11 pip
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" "${PYTHON_ABI_SPEC}" pip
 else
     log_info "Using existing environment: ${CLI_VENV}"
 fi
@@ -66,14 +67,14 @@ conda activate "${CLI_VENV}"
 # Install TVM wheel first (MLC depends on it)
 if [ ${#TVM_WHEELS[@]} -gt 0 ]; then
     log_info "Installing TVM wheel..."
-    pip install --force "${TVM_WHEELS[0]}"
+    python -m pip install --force "${TVM_WHEELS[0]}"
     log_success "TVM wheel installed"
 fi
 
 # Install MLC wheel
 if [ ${#MLC_WHEELS[@]} -gt 0 ]; then
     log_info "Installing MLC wheel..."
-    pip install --force "${MLC_WHEELS[0]}"
+    python -m pip install --force "${MLC_WHEELS[0]}"
     log_success "MLC wheel installed"
 fi
 
