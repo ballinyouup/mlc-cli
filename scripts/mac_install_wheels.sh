@@ -57,9 +57,12 @@ if ! conda env list | grep -q "^${CLI_VENV} "; then
         "cmake>=${CMAKE_MIN_VERSION}" \
         "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
-        pip
+        pip \
+        pytest \
+        psutil
 else
     log_info "Using existing environment: ${CLI_VENV}"
+    conda install -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" pytest psutil
 fi
 
 conda activate "${CLI_VENV}"

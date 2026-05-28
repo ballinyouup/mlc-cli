@@ -22,6 +22,7 @@ if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
         git \
         "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
+        pytest \
         psutil \
         pip
 fi
@@ -41,6 +42,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
         git \
         "${PYTHON_PACKAGE_SPEC}" \
         "${PYTHON_ABI_SPEC}" \
+        pytest \
         psutil \
         pip -y
     conda activate "${CLI_VENV}"
