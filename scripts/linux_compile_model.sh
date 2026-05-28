@@ -53,7 +53,8 @@ if ! conda env list | grep -q "^${CLI_VENV} "; then
     log_error "Conda environment '${CLI_VENV}' not found. Please build first."
 fi
 
-conda activate "${CLI_VENV}"
+CONDA_BASE="$(conda info --base)"
+CONDA_BIN="${CONDA_BASE}/bin/conda"
 
 # =============================================================================
 # Compile Model
@@ -74,7 +75,8 @@ export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
 export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
 
 # Run compilation
-python -m mlc_llm compile \
+"${CONDA_BIN}" run --no-capture-output -n "${CLI_VENV}" \
+    python -m mlc_llm compile \
     "${MODEL_PATH}" \
     --quantization "${QUANTIZATION}" \
     --device "${DEVICE}" \
@@ -85,5 +87,3 @@ if [[ $? -eq 0 ]]; then
 else
     log_error "Model compilation failed"
 fi
-
-conda deactivate
