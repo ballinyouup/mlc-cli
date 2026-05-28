@@ -10,6 +10,7 @@ MODEL_PATH="${2:-}"
 QUANTIZATION="${3:-q4f16_1}"
 OUTPUT_PATH="${4:-}"
 CONV_TEMPLATE="${5:-llama-3}"
+DEVICE="${6:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -71,10 +72,18 @@ export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
 export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
 
 # Convert weights
-python -m mlc_llm convert_weight \
-    "${MODEL_PATH}" \
-    --quantization "${QUANTIZATION}" \
-    -o "${OUTPUT_PATH}"
+if [[ -n "${DEVICE}" ]]; then
+    python -m mlc_llm convert_weight \
+        "${MODEL_PATH}" \
+        --quantization "${QUANTIZATION}" \
+        --device "${DEVICE}" \
+        -o "${OUTPUT_PATH}"
+else
+    python -m mlc_llm convert_weight \
+        "${MODEL_PATH}" \
+        --quantization "${QUANTIZATION}" \
+        -o "${OUTPUT_PATH}"
+fi
 
 if [[ $? -ne 0 ]]; then
     log_error "Weight conversion failed"

@@ -390,31 +390,12 @@ func runQuantizeCmd(args []string) {
 
 	fmt.Printf("🚀 Quantizing [%s] with [%s] on [%s] (non-interactive)...\n", *model, *quant, deviceVal)
 
-	cmd := exec.Command("conda", "run", "--no-capture-output", "-n", *cliEnv,
-		"python", "-m", "mlc_llm", "convert_weight",
-		*model,
-		"--quantization", *quant,
-		"--device", deviceVal,
-		"-o", outputPath)
+	cmd := exec.Command("bash", "scripts/quantize.sh", *cliEnv, *model, *quant, outputPath, *template, deviceVal)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		cliError("Quantization failed", err)
 	}
-
-	fmt.Println("\n📄 Generating config...")
-	cmdConfig := exec.Command("conda", "run", "--no-capture-output", "-n", *cliEnv,
-		"python", "-m", "mlc_llm", "gen_config", *model,
-		"--quantization", *quant,
-		"--conv-template", *template,
-		"-o", outputPath)
-	cmdConfig.Stdout = os.Stdout
-	cmdConfig.Stderr = os.Stderr
-	if err := cmdConfig.Run(); err != nil {
-		cliError("Config generation failed", err)
-	}
-
-	fmt.Println("\n" + Success + "Quantization complete! Model saved to " + outputPath)
 }
 
 // detectOS returns the operating system type
@@ -566,12 +547,7 @@ func promptQuantizeModel(platform *Platform) {
 
 	fmt.Printf("\n🚀 Starting Quantization [%s] using env [%s] on device [%s]...\n", quantCode, platform.CliEnv, platform.Device)
 
-	cmd := exec.Command("conda", "run", "--no-capture-output", "-n", platform.CliEnv,
-		"python", "-m", "mlc_llm", "convert_weight",
-		modelPath,
-		"--quantization", quantCode,
-		"--device", platform.Device,
-		"-o", outputDir)
+	cmd := exec.Command("bash", "scripts/quantize.sh", platform.CliEnv, modelPath, quantCode, outputDir, convTemplate, platform.Device)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -579,22 +555,6 @@ func promptQuantizeModel(platform *Platform) {
 	if err := cmd.Run(); err != nil {
 		cliError("Quantization failed", err)
 	}
-
-	fmt.Println("\n📄 Generating config...")
-	cmdConfig := exec.Command("conda", "run", "--no-capture-output", "-n", platform.CliEnv,
-		"python", "-m", "mlc_llm", "gen_config", modelPath,
-		"--quantization", quantCode,
-		"--conv-template", convTemplate,
-		"-o", outputDir)
-
-	cmdConfig.Stdout = os.Stdout
-	cmdConfig.Stderr = os.Stderr
-
-	if err := cmdConfig.Run(); err != nil {
-		cliError("Config generation failed", err)
-	}
-
-	fmt.Println("\n" + Success + "Quantization Complete! Model saved to " + outputDir)
 }
 
 // promptCompileModel handles the interactive compile model flow
