@@ -15,11 +15,13 @@ WHEELS_DIR="${REPO_ROOT}/${WHEELS_DIR}"
 
 RED='\033[1;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # =============================================================================
@@ -85,8 +87,8 @@ fi
 
 log_info "Verifying installation..."
 
-python -c "import tvm; print(f'TVM version: {tvm.__version__}')" || log_warning "TVM import check failed"
-python -c "import mlc_llm; print('MLC-LLM imported successfully')" || log_warning "MLC-LLM import check failed"
+python -c "from tvm import register_global_func; print('TVM import OK')" || log_warning "TVM import check failed"
+python -c "import mlc_llm; print('MLC-LLM import OK')" || log_warning "MLC-LLM import check failed"
 
 conda deactivate
 log_success "Wheel installation completed!"
