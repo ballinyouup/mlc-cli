@@ -25,5 +25,5 @@ const (
 	// Mirror of PYTHON_VERSION in scripts/config/versions.sh.
 	// NOTE: This constant is informational only — Go does not create conda
 	// environments directly. The shell scripts use PYTHON_VERSION.
-	DefaultPythonVersion = "3.11"
+	DefaultPythonVersion = "3.13"
 )

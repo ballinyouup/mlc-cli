@@ -19,7 +19,7 @@
 # Must match the build environment (mlc-build-venv) so that produced cp* wheels
 # are installable in the CLI environment (mlc-cli-venv) without ABI mismatch.
 # To switch to a different Python version, change PYTHON_VERSION here only.
-PYTHON_VERSION="3.11"
+PYTHON_VERSION="3.13"
 
 # Derived values — do not edit these; edit PYTHON_VERSION above.
 # PYTHON_CP_TAG: e.g. "cp311" from "3.11"
