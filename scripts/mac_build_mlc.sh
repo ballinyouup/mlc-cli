@@ -125,6 +125,13 @@ fi
 if [ ! -d "$MLC_LLM_DIR" ]; then
     log_info "Cloning mlc-llm..."
     git clone --recursive "${MLC_LLM_REPO}" mlc-llm
+    if [[ -n "${MLC_LLM_REF}" ]]; then
+        log_info "Checking out MLC_LLM_REF=${MLC_LLM_REF}..."
+        git -C "${MLC_LLM_DIR}" checkout "${MLC_LLM_REF}"
+        git -C "${MLC_LLM_DIR}" submodule update --init --recursive
+    else
+        log_info "MLC_LLM_REF is empty; using upstream default branch HEAD."
+    fi
 fi
 cd "${MLC_LLM_DIR}" || exit 1
 

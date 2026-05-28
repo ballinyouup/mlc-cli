@@ -37,10 +37,10 @@ PYTHON_ABI_SPEC="python_abi=${PYTHON_VERSION}=*_${PYTHON_CP_TAG}"
 # -----------------------------------------------------------------------------
 MLC_LLM_REPO="https://github.com/mlc-ai/mlc-llm"
 
-# TODO: pin to a known-good commit or tag once one is validated.
-# Leave empty to clone/use the default branch HEAD.
-# If non-empty, scripts that clone MLC_LLM_REPO will checkout this ref.
-MLC_LLM_REF=""
+# Known-good mlc-llm revision for reproducible builds.
+# This SHA passed the Python 3.13 CUDA flow: build/install, import, quantize, compile, and run.
+# Set empty only when intentionally testing the upstream default branch HEAD.
+MLC_LLM_REF="2008fe8343e1f40ef89ee57b9287aebcf1b86c98"
 
 # -----------------------------------------------------------------------------
 # TVM / mlc-ai/relax repository (used in relax TVM source mode)

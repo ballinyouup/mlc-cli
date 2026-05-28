@@ -169,6 +169,13 @@ fi
 if [[ ! -d "${MLC_LLM_DIR}" ]]; then
     log_info "Cloning mlc-llm from ${GITHUB_REPO}..."
     git clone --recursive "${GITHUB_REPO}" "${MLC_LLM_DIR}"
+    if [[ -n "${MLC_LLM_REF}" ]]; then
+        log_info "Checking out MLC_LLM_REF=${MLC_LLM_REF}..."
+        git -C "${MLC_LLM_DIR}" checkout "${MLC_LLM_REF}"
+        git -C "${MLC_LLM_DIR}" submodule update --init --recursive
+    else
+        log_info "MLC_LLM_REF is empty; using upstream default branch HEAD."
+    fi
 else
     log_info "mlc-llm directory already exists, skipping clone."
 fi
