@@ -58,7 +58,14 @@ if [[ -n "${MODEL_URL}" ]]; then
     fi
 else
     if [[ -n "${MODEL_NAME}" ]]; then
-        MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+        if [[ -d "${MODELS_DIR}/${MODEL_NAME}" ]]; then
+            MODEL_PATH="${MODELS_DIR}/${MODEL_NAME}"
+        elif [[ -d "${REPO_ROOT}/dist/${MODEL_NAME}" ]]; then
+            log_info "Model not found in models/, using dist/${MODEL_NAME}"
+            MODEL_PATH="${REPO_ROOT}/dist/${MODEL_NAME}"
+        else
+            log_error "Model '${MODEL_NAME}' not found in models/ or dist/. Run quantize first or pass --model-url."
+        fi
     else
         log_error "Model name is required"
     fi
