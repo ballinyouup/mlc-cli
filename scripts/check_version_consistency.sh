@@ -131,7 +131,19 @@ search_scripts \
     "No hardcoded mlc-llm URL string literal in Go (use DefaultMlcLLMRepo)"
 
 # =============================================================================
-# Check 6: No bare 'pip install' (should be 'python -m pip install')
+# Check 6: DefaultPythonVersion in versions_defaults.go matches PYTHON_VERSION
+# =============================================================================
+GO_PYTHON_VERSION=$(grep 'DefaultPythonVersion.*=' "${REPO_ROOT}/versions_defaults.go" | sed 's/.*= *"\(.*\)".*/\1/' || true)
+if [[ -z "${GO_PYTHON_VERSION}" ]]; then
+    fail "Could not parse DefaultPythonVersion from versions_defaults.go"
+elif [[ "${GO_PYTHON_VERSION}" != "${PYTHON_VERSION}" ]]; then
+    fail "DefaultPythonVersion in versions_defaults.go (${GO_PYTHON_VERSION}) does not match PYTHON_VERSION in versions.sh (${PYTHON_VERSION})"
+else
+    pass "DefaultPythonVersion in Go matches PYTHON_VERSION in shell (${PYTHON_VERSION})"
+fi
+
+# =============================================================================
+# Check 7: No bare 'pip install' (should be 'python -m pip install')
 # Exempt: pip install build  (used in build scripts for the build tool itself,
 # which is fine — it installs into the already-activated conda env).
 # =============================================================================
