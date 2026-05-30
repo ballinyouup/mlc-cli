@@ -145,6 +145,23 @@ if [ ! -d "$MLC_LLM_DIR" ]; then
     else
         log_info "MLC_LLM_REF is empty; using upstream default branch HEAD."
     fi
+else
+    if [[ -n "${MLC_LLM_REF}" ]]; then
+        current_mlc_head="$(git -C "${MLC_LLM_DIR}" rev-parse HEAD 2>/dev/null || echo 'unknown')"
+        expected_mlc_head="$(git -C "${MLC_LLM_DIR}" rev-parse "${MLC_LLM_REF}^{commit}" 2>/dev/null || echo '')"
+
+        if [[ -n "${expected_mlc_head}" && "${current_mlc_head}" == "${expected_mlc_head}" ]]; then
+            log_info "mlc-llm already at MLC_LLM_REF=${MLC_LLM_REF} (${current_mlc_head:0:8})"
+        else
+            log_info "Switching existing mlc-llm checkout to MLC_LLM_REF=${MLC_LLM_REF} (current HEAD: ${current_mlc_head:0:8})"
+            git -C "${MLC_LLM_DIR}" remote set-url origin "${MLC_LLM_REPO}"
+            git -C "${MLC_LLM_DIR}" fetch origin
+            git -C "${MLC_LLM_DIR}" checkout "${MLC_LLM_REF}"
+            git -C "${MLC_LLM_DIR}" submodule update --init --recursive
+        fi
+    else
+        log_info "mlc-llm directory already exists and MLC_LLM_REF is empty; using existing checkout."
+    fi
 fi
 cd "${MLC_LLM_DIR}" || exit 1
 
