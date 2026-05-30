@@ -4,6 +4,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config/versions.sh"
+source "${SCRIPT_DIR}/lib/wheel_selection.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
@@ -62,38 +63,10 @@ fi
 
 # install MLC Python package
 if [ "${INSTALL_MODE}" = "wheel" ]; then
-    SHORT_SHA="${MLC_LLM_REF:0:8}"
-    MLC_WHEELS=($(ls "${WHEELS_DIR}"/mlc_llm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl 2>/dev/null || true))
-    SHA_MATCHES=()
-    if [[ -n "${SHORT_SHA}" ]]; then
-        SHA_MATCHES=($(printf '%s\n' "${MLC_WHEELS[@]}" | grep "g${SHORT_SHA}" || true))
+    find_mlc_wheel
+    if [[ -n "${MLC_WHEEL_PATH}" ]]; then
+        python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
     fi
-
-    if [[ -n "${SHORT_SHA}" ]] && [[ ${#SHA_MATCHES[@]} -eq 1 ]]; then
-        MLC_WHEEL_PATH="${SHA_MATCHES[0]}"
-        echo "Selected MLC wheel matching MLC_LLM_REF short SHA (g${SHORT_SHA}): $(basename "${MLC_WHEEL_PATH}")"
-    elif [[ -n "${SHORT_SHA}" ]] && [[ ${#SHA_MATCHES[@]} -gt 1 ]]; then
-        echo "Error: Multiple MLC wheels match short SHA g${SHORT_SHA} in ${WHEELS_DIR}. Remove stale wheels and retry."
-        printf '  %s\n' "${SHA_MATCHES[@]}" >&2
-        exit 1
-    elif [[ ${#MLC_WHEELS[@]} -eq 1 ]]; then
-        MLC_WHEEL_PATH="${MLC_WHEELS[0]}"
-        if [[ -n "${SHORT_SHA}" ]]; then
-            echo "Warning: No MLC wheel matches MLC_LLM_REF short SHA (g${SHORT_SHA}). Using only available ABI-matching wheel: $(basename "${MLC_WHEEL_PATH}")"
-        fi
-    elif [[ ${#MLC_WHEELS[@]} -gt 1 ]]; then
-        if [[ -n "${SHORT_SHA}" ]]; then
-            echo "Error: Multiple ABI-matching MLC wheels exist and none matches MLC_LLM_REF short SHA (g${SHORT_SHA}). Delete stale wheels."
-        else
-            echo "Error: Multiple ABI-matching MLC wheels exist. Delete stale wheels."
-        fi
-        printf '  %s\n' "${MLC_WHEELS[@]}" >&2
-        exit 1
-    else
-        echo "Error: No wheel found matching pattern: mlc_llm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl (WHEELS_DIR=${WHEELS_DIR}, PYTHON_CP_TAG=${PYTHON_CP_TAG})"
-        exit 1
-    fi
-    python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 else
     cd mlc-llm/python
     python -m pip install -e .

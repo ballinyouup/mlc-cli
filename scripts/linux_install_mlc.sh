@@ -11,6 +11,7 @@ INSTALL_MODE="${4:-source}"  # source or wheel
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config/versions.sh"
+source "${SCRIPT_DIR}/lib/wheel_selection.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 
@@ -80,48 +81,11 @@ fi
 
 # Install MLC wheel
 log_info "Installing MLC wheel..."
-if [[ -n "${MLC_WHEEL}" ]]; then
-    log_info "Using explicit MLC_WHEEL argument: ${MLC_WHEEL}"
-    if [[ ! -f "${MLC_WHEEL}" ]]; then
-        log_error "Explicit MLC_WHEEL path does not exist: ${MLC_WHEEL}"
-        exit 1
-    fi
-    MLC_WHEEL_PATH="${MLC_WHEEL}"
-else
-    SHORT_SHA="${MLC_LLM_REF:0:8}"
-    MLC_WHEELS=($(ls "${WHEELS_DIR}"/mlc_llm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl 2>/dev/null || true))
-    SHA_MATCHES=()
-    if [[ -n "${SHORT_SHA}" ]]; then
-        SHA_MATCHES=($(printf '%s\n' "${MLC_WHEELS[@]}" | grep "g${SHORT_SHA}" || true))
-    fi
-
-    if [[ -n "${SHORT_SHA}" ]] && [[ ${#SHA_MATCHES[@]} -eq 1 ]]; then
-        MLC_WHEEL_PATH="${SHA_MATCHES[0]}"
-        log_info "Selected MLC wheel matching MLC_LLM_REF short SHA (g${SHORT_SHA}): $(basename "${MLC_WHEEL_PATH}")"
-    elif [[ -n "${SHORT_SHA}" ]] && [[ ${#SHA_MATCHES[@]} -gt 1 ]]; then
-        log_error "Multiple MLC wheels match short SHA g${SHORT_SHA} in ${WHEELS_DIR}. Remove stale wheels and retry."
-        printf '  %s\n' "${SHA_MATCHES[@]}" >&2
-        exit 1
-    elif [[ ${#MLC_WHEELS[@]} -eq 1 ]]; then
-        MLC_WHEEL_PATH="${MLC_WHEELS[0]}"
-        if [[ -n "${SHORT_SHA}" ]]; then
-            log_warning "No MLC wheel matches MLC_LLM_REF short SHA (g${SHORT_SHA}). Using only available ABI-matching wheel: $(basename "${MLC_WHEEL_PATH}")"
-        fi
-    elif [[ ${#MLC_WHEELS[@]} -gt 1 ]]; then
-        if [[ -n "${SHORT_SHA}" ]]; then
-            log_error "Multiple ABI-matching MLC wheels exist and none matches MLC_LLM_REF short SHA (g${SHORT_SHA}). Delete stale wheels or pass an explicit wheel path."
-        else
-            log_error "Multiple ABI-matching MLC wheels exist. Delete stale wheels or pass an explicit wheel path."
-        fi
-        printf '  %s\n' "${MLC_WHEELS[@]}" >&2
-        exit 1
-    else
-        log_error "No MLC wheel found in ${WHEELS_DIR} matching mlc_llm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl"
-        exit 1
-    fi
+find_mlc_wheel
+if [[ -n "${MLC_WHEEL_PATH}" ]]; then
+    python -m pip install --force "${MLC_WHEEL_PATH}"
+    log_success "MLC wheel installed"
 fi
-python -m pip install --force "${MLC_WHEEL_PATH}"
-log_success "MLC wheel installed"
 
 conda deactivate
 
