@@ -24,7 +24,7 @@ NC='\033[0m'
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # =============================================================================
 # Pre-flight Checks
@@ -32,7 +32,6 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 if ! command -v conda &> /dev/null; then
     log_error "Conda is required but not installed"
-    exit 1
 fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -50,7 +49,6 @@ log_info "Installing MLC-LLM into CLI environment..."
 
 conda activate "${CLI_VENV}" || {
     log_error "Failed to activate environment: ${CLI_VENV}"
-    exit 1
 }
 
 # Install TVM first if in source mode and a standalone TVM wheel exists.
@@ -82,10 +80,11 @@ fi
 # Install MLC wheel
 log_info "Installing MLC wheel..."
 find_mlc_wheel
-if [[ -n "${MLC_WHEEL_PATH}" ]]; then
-    python -m pip install --force "${MLC_WHEEL_PATH}"
-    log_success "MLC wheel installed"
+if [[ -z "${MLC_WHEEL_PATH}" ]]; then
+    log_error "No ABI-matching MLC wheel found in ${WHEELS_DIR}. Run build first."
 fi
+python -m pip install --force "${MLC_WHEEL_PATH}"
+log_success "MLC wheel installed"
 
 conda deactivate
 
