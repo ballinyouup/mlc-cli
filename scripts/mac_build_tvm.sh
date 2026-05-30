@@ -47,15 +47,19 @@ elif [ "${TVM_SOURCE}" = "relax" ]; then
     fi
     if [ ! -d "${TVM_DIR}" ]; then
         echo "Cloning ${TVM_REPO} ref=${TVM_REF}..."
-        git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_DIR}"
-    elif [ "$(git -C "${TVM_DIR}" rev-parse --abbrev-ref HEAD)" != "mlc" ]; then
-        echo "Switching TVM to mlc branch (mlc-ai/relax)..."
+        git clone "${TVM_REPO}" "${TVM_DIR}"
+        git -C "${TVM_DIR}" checkout "${TVM_REF}"
+        git -C "${TVM_DIR}" submodule update --init --recursive
+    elif [ "$(git -C "${TVM_DIR}" rev-parse HEAD 2>/dev/null)" != "$(git -C "${TVM_DIR}" rev-parse "${TVM_REF}" 2>/dev/null || echo 'unknown')" ]; then
+        current_tvm_head="$(git -C "${TVM_DIR}" rev-parse HEAD 2>/dev/null || echo 'unknown')"
+        echo "Current TVM HEAD is ${current_tvm_head:0:8}, expected ${TVM_REF}"
+        echo "Switching TVM to ${TVM_REF}..."
         git -C "${TVM_DIR}" remote set-url origin "${TVM_REPO}"
-        git -C "${TVM_DIR}" fetch origin mlc
-        git -C "${TVM_DIR}" checkout mlc
+        git -C "${TVM_DIR}" fetch origin
+        git -C "${TVM_DIR}" checkout "${TVM_REF}"
         git -C "${TVM_DIR}" submodule update --init --recursive
     else
-        echo "TVM is already on mlc branch."
+        echo "TVM is already at ${TVM_REF}."
     fi
 else
     # Clone mlc-llm if it doesn't exist (for bundled TVM)

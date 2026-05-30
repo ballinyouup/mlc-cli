@@ -56,10 +56,20 @@ if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
     if [ ! -d "$TVM_DIR" ]; then
         if [[ "$TVM_SOURCE" == "relax" ]]; then
             log_info "Cloning ${TVM_REPO} ref=${TVM_REF}..."
-            git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_DIR}"
+            git clone "${TVM_REPO}" "${TVM_DIR}"
+            git -C "${TVM_DIR}" checkout "${TVM_REF}"
+            git -C "${TVM_DIR}" submodule update --init --recursive
         fi
+    elif [[ "$(git -C "${TVM_DIR}" rev-parse HEAD 2>/dev/null)" != "$(git -C "${TVM_DIR}" rev-parse "${TVM_REF}" 2>/dev/null || echo 'unknown')" ]]; then
+        current_tvm_head="$(git -C "${TVM_DIR}" rev-parse HEAD 2>/dev/null || echo 'unknown')"
+        log_info "Current TVM HEAD is ${current_tvm_head:0:8}, expected ${TVM_REF}"
+        log_info "Switching TVM to ${TVM_REF}..."
+        git -C "${TVM_DIR}" remote set-url origin "${TVM_REPO}"
+        git -C "${TVM_DIR}" fetch origin
+        git -C "${TVM_DIR}" checkout "${TVM_REF}"
+        git -C "${TVM_DIR}" submodule update --init --recursive
     else
-        log_info "Using TVM from ${TVM_DIR}"
+        log_info "TVM is already at ${TVM_REF}."
     fi
 else
     log_info "Will use bundled TVM (mlc-llm builds this internally)"

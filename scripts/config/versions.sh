@@ -46,10 +46,7 @@ MLC_LLM_REF="2008fe8343e1f40ef89ee57b9287aebcf1b86c98"
 # TVM / mlc-ai/relax repository (used in relax TVM source mode)
 # -----------------------------------------------------------------------------
 TVM_REPO="https://github.com/mlc-ai/relax.git"
-TVM_REF="mlc"   # branch name; switch to a commit SHA once one is validated
-
-# TODO: pin TVM_REF to a specific commit SHA once a known-good one is confirmed.
-# For now "mlc" (branch) is the working default.
+TVM_REF="b628d91fac716679db539884a55f8c6651f54dea"   # known-good commit SHA
 
 # -----------------------------------------------------------------------------
 # Conda channel and cmake minimum version

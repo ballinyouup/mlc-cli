@@ -104,10 +104,23 @@ if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
     if [ ! -d "$TVM_SOURCE_DIR" ]; then
         if [[ "$TVM_SOURCE" == "relax" ]]; then
             log_info "Cloning ${TVM_REPO} ref=${TVM_REF}..."
-            git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_SOURCE_DIR}"
+            git clone "${TVM_REPO}" "${TVM_SOURCE_DIR}"
+            git -C "${TVM_SOURCE_DIR}" checkout "${TVM_REF}"
+            git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
         fi
     else
-        log_info "Using TVM from ${TVM_SOURCE_DIR}"
+        current_tvm_head="$(git -C "${TVM_SOURCE_DIR}" rev-parse HEAD 2>/dev/null || echo 'unknown')"
+        expected_tvm_head="$(git -C "${TVM_SOURCE_DIR}" rev-parse "${TVM_REF}" 2>/dev/null || echo '')"
+
+        if [[ -n "${expected_tvm_head}" && "${current_tvm_head}" == "${expected_tvm_head}" ]]; then
+            log_info "TVM already at TVM_REF=${TVM_REF} (${current_tvm_head:0:8})"
+        else
+            log_info "Switching existing TVM checkout to TVM_REF=${TVM_REF} (current HEAD: ${current_tvm_head:0:8})"
+            git -C "${TVM_SOURCE_DIR}" remote set-url origin "${TVM_REPO}"
+            git -C "${TVM_SOURCE_DIR}" fetch origin
+            git -C "${TVM_SOURCE_DIR}" checkout "${TVM_REF}"
+            git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
+        fi
     fi
 else
     TVM_SOURCE_DIR=""

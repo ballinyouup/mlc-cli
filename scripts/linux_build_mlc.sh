@@ -137,16 +137,20 @@ if [[ "${TVM_SOURCE}" == "relax" ]]; then
     fi
 
     if [[ ! -d "${TVM_SOURCE_DIR}" ]]; then
-        log_info "Cloning mlc-ai/relax on mlc branch..."
-        git clone --recursive -b "${TVM_REF}" "${TVM_REPO}" "${TVM_SOURCE_DIR}"
-    elif [[ "$(git -C "${TVM_SOURCE_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')" != "mlc" ]]; then
-        log_info "Switching TVM to mlc branch (mlc-ai/relax)..."
+        log_info "Cloning ${TVM_REPO} ref=${TVM_REF}..."
+        git clone "${TVM_REPO}" "${TVM_SOURCE_DIR}"
+        git -C "${TVM_SOURCE_DIR}" checkout "${TVM_REF}"
+        git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
+    elif [[ "$(git -C "${TVM_SOURCE_DIR}" rev-parse HEAD 2>/dev/null)" != "$(git -C "${TVM_SOURCE_DIR}" rev-parse "${TVM_REF}" 2>/dev/null || echo 'unknown')" ]]; then
+        current_tvm_head="$(git -C "${TVM_SOURCE_DIR}" rev-parse HEAD 2>/dev/null || echo 'unknown')"
+        log_info "Current TVM HEAD is ${current_tvm_head:0:8}, expected ${TVM_REF}"
+        log_info "Switching TVM to ${TVM_REF}..."
         git -C "${TVM_SOURCE_DIR}" remote set-url origin "${TVM_REPO}"
-        git -C "${TVM_SOURCE_DIR}" fetch origin mlc
-        git -C "${TVM_SOURCE_DIR}" checkout mlc
+        git -C "${TVM_SOURCE_DIR}" fetch origin
+        git -C "${TVM_SOURCE_DIR}" checkout "${TVM_REF}"
         git -C "${TVM_SOURCE_DIR}" submodule update --init --recursive
     else
-        log_info "TVM is already on mlc branch."
+        log_info "TVM is already at ${TVM_REF}."
     fi
 
 elif [[ "${TVM_SOURCE}" == "custom" ]]; then
