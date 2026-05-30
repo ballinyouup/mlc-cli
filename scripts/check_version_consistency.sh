@@ -83,6 +83,7 @@ search_scripts() {
 echo "=== Version Consistency Check ==="
 echo "Canonical values (from scripts/config/versions.sh):"
 echo "  PYTHON_VERSION    = ${PYTHON_VERSION}"
+echo "  LLVM_VERSION      = ${LLVM_VERSION}"
 echo "  MLC_LLM_REPO      = ${MLC_LLM_REPO}"
 echo "  TVM_REPO          = ${TVM_REPO}"
 echo "  TVM_REF           = ${TVM_REF}"
@@ -143,7 +144,15 @@ else
 fi
 
 # =============================================================================
-# Check 7: No bare 'pip install' (should be 'python -m pip install')
+# Check 7: No hardcoded llvmdev=NN in scripts
+# Match literal llvmdev= followed by digits
+# =============================================================================
+search_scripts \
+    'llvmdev=[0-9]\+' \
+    "No hardcoded llvmdev version in scripts (use LLVM_VERSION)"
+
+# =============================================================================
+# Check 8: No bare 'pip install' (should be 'python -m pip install')
 # Exempt: pip install build  (used in build scripts for the build tool itself,
 # which is fine — it installs into the already-activated conda env).
 # =============================================================================

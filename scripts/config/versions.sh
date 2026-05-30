@@ -59,6 +59,9 @@ CONDA_CHANNEL="conda-forge"
 # conda create call so the intent is unambiguous.)
 CMAKE_MIN_VERSION="3.24"
 
+# LLVM major version used for macOS TVM build dependency llvmdev.
+LLVM_VERSION="19"
+
 # Packages included in every conda create call.
 # Scripts may append extra platform-specific packages after sourcing this file.
 CONDA_BASE_PKGS=(

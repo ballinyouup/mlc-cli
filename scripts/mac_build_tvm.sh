@@ -17,7 +17,7 @@ WHEELS_DIR="${REPO_ROOT}/wheels"
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 conda create -y -n ${BUILD_VENV} -c "${CONDA_CHANNEL}" \
-    "llvmdev=19" \
+    "llvmdev=${LLVM_VERSION}" \
     "cmake>=${CMAKE_MIN_VERSION}" \
     git \
     zstd \
