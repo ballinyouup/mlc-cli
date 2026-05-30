@@ -34,6 +34,10 @@ fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
+if ! conda env list | grep -q "^${CLI_VENV} "; then
+    log_error "CLI environment '${CLI_VENV}' not found. Please run build first."
+fi
+
 # =============================================================================
 # Setup Model
 # =============================================================================
