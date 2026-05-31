@@ -5,9 +5,8 @@ set -eu
 # Configuration
 # =============================================================================
 CLI_VENV="${1:-mlc-cli-venv}"
-TVM_WHEEL="${2:-}"
-MLC_WHEEL="${3:-}"
-INSTALL_MODE="${4:-source}"  # source or wheel
+TVM_SOURCE="${2:-bundled}"
+INSTALL_MODE="${3:-source}"  # source or wheel
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config/versions.sh"
@@ -55,25 +54,23 @@ conda activate "${CLI_VENV}" || {
 # In bundled mode linux_build_mlc.sh does not produce a tvm-*.whl; TVM is
 # embedded inside the mlc_llm wheel, so this step is skipped there.
 if [[ "${INSTALL_MODE}" == "source" ]]; then
-    if [[ -n "${TVM_WHEEL}" ]]; then
-        log_info "Using explicit TVM_WHEEL argument: ${TVM_WHEEL}"
-        if [[ ! -f "${TVM_WHEEL}" ]]; then
-            log_error "Explicit TVM_WHEEL path does not exist: ${TVM_WHEEL}"
-            exit 1
-        fi
-        TVM_WHEELS=("${TVM_WHEEL}")
+    if [[ "${TVM_SOURCE}" == "bundled" ]]; then
+        log_info "Bundled TVM mode — skipping standalone TVM wheel install"
     else
         TVM_WHEELS=($(ls "${WHEELS_DIR}"/tvm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl 2>/dev/null || true))
-        if [ ${#TVM_WHEELS[@]} -gt 1 ]; then
-            log_warning "Multiple TVM wheels found. Using the first one: $(basename "${TVM_WHEELS[0]}")"
+
+        if [[ ${#TVM_WHEELS[@]} -eq 0 ]]; then
+            log_error "No ABI-matching standalone TVM wheel found in ${WHEELS_DIR} for TVM_SOURCE=${TVM_SOURCE}. Run build first or use TVM_SOURCE=bundled."
         fi
-    fi
-    if [[ ${#TVM_WHEELS[@]} -gt 0 ]] && [[ -f "${TVM_WHEELS[0]}" ]]; then
-        log_info "Installing TVM wheel first..."
+
+        if [[ ${#TVM_WHEELS[@]} -gt 1 ]]; then
+            printf '%s\n' "${TVM_WHEELS[@]}"
+            log_error "Multiple ABI-matching TVM wheels found for TVM_SOURCE=${TVM_SOURCE}. Remove stale wheels and retry."
+        fi
+
+        log_info "Installing standalone TVM wheel for TVM_SOURCE=${TVM_SOURCE}..."
         python -m pip install --force "${TVM_WHEELS[0]}"
         log_success "TVM wheel installed"
-    else
-        log_info "No standalone TVM wheel found in ${WHEELS_DIR} matching tvm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl (bundled mode — skipping TVM wheel install)"
     fi
 fi
 
