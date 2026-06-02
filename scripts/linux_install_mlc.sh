@@ -76,7 +76,9 @@ fi
 
 # Install MLC wheel
 log_info "Installing MLC wheel..."
-find_mlc_wheel
+if ! find_mlc_wheel; then
+    log_error "Failed to select MLC wheel. Please check the errors above."
+fi
 if [[ -z "${MLC_WHEEL_PATH}" ]]; then
     log_error "No ABI-matching MLC wheel found in ${WHEELS_DIR}. Run build first."
 fi

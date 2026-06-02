@@ -46,7 +46,9 @@ if [ ${#TVM_WHEELS[@]} -gt 1 ]; then
     log_warning "Multiple TVM wheels found. Using the first one: $(basename "${TVM_WHEELS[0]}")"
 fi
 
-find_mlc_wheel
+if ! find_mlc_wheel; then
+    log_error "Failed to select MLC wheel. Please check the errors above."
+fi
 
 if [ ${#TVM_WHEELS[@]} -eq 0 ] && [ -z "${MLC_WHEEL_PATH}" ]; then
     log_error "No wheels found in ${WHEELS_DIR} matching PYTHON_CP_TAG=${PYTHON_CP_TAG}"

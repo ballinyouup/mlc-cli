@@ -41,20 +41,12 @@ ALLOWED_FILES=(
     "mlc-llm-repo.md"
 )
 
-# Build a grep -v pattern to exclude allowed file paths
-build_exclude_grep() {
-    local pattern=""
-    for f in "${ALLOWED_FILES[@]}"; do
-        if [[ -n "$pattern" ]]; then
-            pattern="${pattern}\\|${f}"
-        else
-            pattern="${f}"
-        fi
-    done
-    echo "${pattern}"
-}
-
-EXCLUDE_PATTERN="$(build_exclude_grep)"
+# Create a temp file with allowed files for grep -Fv -f
+EXCLUDE_FILE=$(mktemp)
+trap 'rm -f "$EXCLUDE_FILE"' EXIT
+for f in "${ALLOWED_FILES[@]}"; do
+    echo "$f" >> "$EXCLUDE_FILE"
+done
 
 # =============================================================================
 # Helper: search active scripts only, excluding exempt files
@@ -69,7 +61,7 @@ search_scripts() {
     hits=$(grep -rn --include="*.sh" --include="*.go" \
         -e "${pattern}" \
         "${REPO_ROOT}/scripts" "${REPO_ROOT}"/*.go 2>/dev/null \
-        | grep -v "${EXCLUDE_PATTERN}" || true)
+        | grep -Fv -f "${EXCLUDE_FILE}" || true)
 
     if [[ -n "$hits" ]]; then
         fail "${desc}"
@@ -161,7 +153,7 @@ echo "=== Bare pip install check (informational) ==="
 BARE_PIP=$(grep -rn --include="*.sh" \
     -e '^\s*pip install' \
     "${REPO_ROOT}/scripts" 2>/dev/null \
-    | grep -v "${EXCLUDE_PATTERN}" || true)
+    | grep -Fv -f "${EXCLUDE_FILE}" || true)
 
 if [[ -n "$BARE_PIP" ]]; then
     warn "Bare 'pip install' found (should use 'python -m pip install' where pip may not be on PATH):"

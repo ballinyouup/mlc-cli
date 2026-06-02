@@ -17,7 +17,7 @@ TVM_SOURCE="${2:-bundled}"  # bundled, relax, or custom
 INSTALL_MODE="${3:-wheel}"  # source (editable from repo) or wheel (pre-built)
 
 if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
-    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
@@ -37,7 +37,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
     echo "Recreating environment with correct Python version..."
     conda deactivate
     conda env remove -n "${CLI_VENV}" -y
-    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
@@ -45,7 +45,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
         "${PYTHON_ABI_SPEC}" \
         pytest \
         psutil \
-        pip -y
+        pip
     conda activate "${CLI_VENV}"
 fi
 
@@ -63,10 +63,14 @@ fi
 
 # install MLC Python package
 if [ "${INSTALL_MODE}" = "wheel" ]; then
-    find_mlc_wheel
-    if [[ -n "${MLC_WHEEL_PATH}" ]]; then
-        python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
+    if ! find_mlc_wheel; then
+        exit 1
     fi
+    if [[ -z "${MLC_WHEEL_PATH}" ]]; then
+        echo "Error: No MLC wheel found. Please build wheels first."
+        exit 1
+    fi
+    python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 else
     cd mlc-llm/python
     python -m pip install -e .

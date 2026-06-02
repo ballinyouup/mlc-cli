@@ -24,7 +24,7 @@ find_mlc_wheel() {
             else
                 echo "Error: Explicit MLC_WHEEL path does not exist: ${MLC_WHEEL}" >&2
             fi
-            exit 1
+            return 1
         fi
         MLC_WHEEL_PATH="${MLC_WHEEL}"
         return 0
@@ -52,7 +52,7 @@ find_mlc_wheel() {
             echo "Error: Multiple MLC wheels match short SHA g${SHORT_SHA} in ${WHEELS_DIR}. Remove stale wheels and retry." >&2
         fi
         printf '  %s\n' "${SHA_MATCHES[@]}" >&2
-        exit 1
+        return 1
     elif [[ ${#MLC_WHEELS[@]} -eq 1 ]]; then
         MLC_WHEEL_PATH="${MLC_WHEELS[0]}"
         if [[ -n "${SHORT_SHA}" ]]; then
@@ -77,6 +77,13 @@ find_mlc_wheel() {
             fi
         fi
         printf '  %s\n' "${MLC_WHEELS[@]}" >&2
-        exit 1
+        return 1
     fi
+
+    if [[ -z "${MLC_WHEEL_PATH}" ]]; then
+        echo "Error: No ABI-matching MLC wheel found in ${WHEELS_DIR} for PYTHON_CP_TAG=${PYTHON_CP_TAG}" >&2
+        return 1
+    fi
+
+    return 0
 }

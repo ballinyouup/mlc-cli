@@ -14,7 +14,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 CLI_VENV="${1:-mlc-cli-venv}"
 
 if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
-    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
@@ -34,7 +34,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
     echo "Recreating environment with correct Python version..."
     conda deactivate
     conda env remove -n "${CLI_VENV}" -y
-    conda create -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
+    conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
         rust \
         git \
@@ -42,7 +42,7 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
         "${PYTHON_ABI_SPEC}" \
         pytest \
         psutil \
-        pip -y
+        pip
     conda activate "${CLI_VENV}"
 fi
 
