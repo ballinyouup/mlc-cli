@@ -16,7 +16,7 @@ WHEELS_DIR="${REPO_ROOT}/wheels"
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-conda create -y -n ${BUILD_VENV} -c "${CONDA_CHANNEL}" \
+conda create -y -n "${BUILD_VENV}" -c "${CONDA_CHANNEL}" \
     "llvmdev=${LLVM_VERSION}" \
     "cmake>=${CMAKE_MIN_VERSION}" \
     git \
@@ -24,7 +24,7 @@ conda create -y -n ${BUILD_VENV} -c "${CONDA_CHANNEL}" \
     "${PYTHON_PACKAGE_SPEC}" \
     "${PYTHON_ABI_SPEC}"
 
-conda activate ${BUILD_VENV}
+conda activate "${BUILD_VENV}"
 
 # Set library path for cmake to find zstd
 export DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"

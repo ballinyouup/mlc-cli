@@ -81,14 +81,14 @@ conda activate "${CLI_VENV}"
 # Install TVM wheel first (MLC depends on it)
 if [ ${#TVM_WHEELS[@]} -gt 0 ]; then
     log_info "Installing TVM wheel..."
-    python -m pip install --force "${TVM_WHEELS[0]}"
+    python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
     log_success "TVM wheel installed"
 fi
 
 # Install MLC wheel
 if [ -n "${MLC_WHEEL_PATH}" ]; then
     log_info "Installing MLC wheel..."
-    python -m pip install --force "${MLC_WHEEL_PATH}"
+    python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
     log_success "MLC wheel installed"
 fi
 

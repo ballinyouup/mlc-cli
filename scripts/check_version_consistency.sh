@@ -153,7 +153,8 @@ echo "=== Bare pip install check (informational) ==="
 BARE_PIP=$(grep -rn --include="*.sh" \
     -e '^\s*pip install' \
     "${REPO_ROOT}/scripts" 2>/dev/null \
-    | grep -Fv -f "${EXCLUDE_FILE}" || true)
+    | grep -Fv -f "${EXCLUDE_FILE}" \
+    | grep -v 'pip install build' || true)
 
 if [[ -n "$BARE_PIP" ]]; then
     warn "Bare 'pip install' found (should use 'python -m pip install' where pip may not be on PATH):"

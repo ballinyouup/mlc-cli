@@ -69,7 +69,7 @@ if [[ "${INSTALL_MODE}" == "source" ]]; then
         fi
 
         log_info "Installing standalone TVM wheel for TVM_SOURCE=${TVM_SOURCE}..."
-        python -m pip install --force "${TVM_WHEELS[0]}"
+        python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
         log_success "TVM wheel installed"
     fi
 fi
@@ -82,7 +82,7 @@ fi
 if [[ -z "${MLC_WHEEL_PATH}" ]]; then
     log_error "No ABI-matching MLC wheel found in ${WHEELS_DIR}. Run build first."
 fi
-python -m pip install --force "${MLC_WHEEL_PATH}"
+python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 log_success "MLC wheel installed"
 
 conda deactivate
