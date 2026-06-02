@@ -58,7 +58,7 @@ search_scripts() {
 
     # Search scripts/ and *.go; then filter out exempt file paths
     local hits
-    hits=$(grep -rn --include="*.sh" --include="*.go" \
+    hits=$(grep -rnE --include="*.sh" --include="*.go" \
         -e "${pattern}" \
         "${REPO_ROOT}/scripts" "${REPO_ROOT}"/*.go 2>/dev/null \
         | grep -Fv -f "${EXCLUDE_FILE}" || true)
@@ -87,7 +87,7 @@ echo ""
 # Match literal  python=3.11  or  python=3.13  but NOT  python="${PYTHON_VERSION}"
 # =============================================================================
 search_scripts \
-    'python=3\.[0-9]\+[^$"{]' \
+    'python=3\.[0-9]+([^$"{]|$)' \
     "No hardcoded python=X.Y in scripts (use PYTHON_PACKAGE_SPEC / PYTHON_ABI_SPEC)"
 
 # =============================================================================
@@ -96,14 +96,14 @@ search_scripts \
 # assignment in versions.sh.
 # =============================================================================
 search_scripts \
-    'https://github\.com/mlc-ai/mlc-llm[^$"{]' \
+    'https://github\.com/mlc-ai/mlc-llm([^$"{]|$)' \
     "No hardcoded mlc-llm GitHub URL in scripts (use MLC_LLM_REPO)"
 
 # =============================================================================
 # Check 3: No hardcoded relax.git URL in scripts
 # =============================================================================
 search_scripts \
-    'https://github\.com/mlc-ai/relax\.git[^$"{]' \
+    'https://github\.com/mlc-ai/relax\.git([^$"{]|$)' \
     "No hardcoded mlc-ai/relax.git URL in scripts (use TVM_REPO)"
 
 # =============================================================================
@@ -140,7 +140,7 @@ fi
 # Match literal llvmdev= followed by digits
 # =============================================================================
 search_scripts \
-    'llvmdev=[0-9]\+' \
+    'llvmdev=[0-9]+' \
     "No hardcoded llvmdev version in scripts (use LLVM_VERSION)"
 
 # =============================================================================

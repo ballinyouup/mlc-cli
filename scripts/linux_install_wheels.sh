@@ -72,7 +72,6 @@ else
     conda install -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" pytest psutil
 fi
 
-conda activate "${CLI_VENV}"
 
 # =============================================================================
 # Install Wheels
@@ -81,14 +80,14 @@ conda activate "${CLI_VENV}"
 # Install TVM wheel first (MLC depends on it)
 if [ ${#TVM_WHEELS[@]} -gt 0 ]; then
     log_info "Installing TVM wheel..."
-    python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
+    conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
     log_success "TVM wheel installed"
 fi
 
 # Install MLC wheel
 if [ -n "${MLC_WHEEL_PATH}" ]; then
     log_info "Installing MLC wheel..."
-    python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
+    conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
     log_success "MLC wheel installed"
 fi
 
@@ -98,10 +97,9 @@ fi
 
 log_info "Verifying installation..."
 
-python -c "from tvm import register_global_func; print('TVM import OK')" || log_warning "TVM import check failed"
-python -c "import mlc_llm; print('MLC-LLM import OK')" || log_warning "MLC-LLM import check failed"
+conda run --no-capture-output -n "${CLI_VENV}" python -c "from tvm import register_global_func; print('TVM import OK')" || log_warning "TVM import check failed"
+conda run --no-capture-output -n "${CLI_VENV}" python -c "import mlc_llm; print('MLC-LLM import OK')" || log_warning "MLC-LLM import check failed"
 
-conda deactivate
 log_success "Wheel installation completed!"
 log_info ""
 log_info "To use the CLI:"

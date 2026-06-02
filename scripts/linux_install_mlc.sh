@@ -46,9 +46,6 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 log_info "Installing MLC-LLM into CLI environment..."
 
-conda activate "${CLI_VENV}" || {
-    log_error "Failed to activate environment: ${CLI_VENV}"
-}
 
 # Install TVM first if in source mode and a standalone TVM wheel exists.
 # In bundled mode linux_build_mlc.sh does not produce a tvm-*.whl; TVM is
@@ -69,7 +66,7 @@ if [[ "${INSTALL_MODE}" == "source" ]]; then
         fi
 
         log_info "Installing standalone TVM wheel for TVM_SOURCE=${TVM_SOURCE}..."
-        python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
+        conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
         log_success "TVM wheel installed"
     fi
 fi
@@ -82,10 +79,9 @@ fi
 if [[ -z "${MLC_WHEEL_PATH}" ]]; then
     log_error "No ABI-matching MLC wheel found in ${WHEELS_DIR}. Run build first."
 fi
-python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
+conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 log_success "MLC wheel installed"
 
-conda deactivate
 
 log_success "Installation completed successfully!"
 log_info ""

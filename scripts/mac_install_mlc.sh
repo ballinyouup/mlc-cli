@@ -28,14 +28,12 @@ if ! conda env list | awk '{print $1}' | grep -qx "${CLI_VENV}"; then
         pip
 fi
 
-conda activate "${CLI_VENV}"
 
 # Verify Python version matches wheel requirement (from versions.sh)
-PY_VERSION_INSTALLED=$(python --version | awk '{print $2}' | cut -d. -f1,2)
+PY_VERSION_INSTALLED=$(conda run --no-capture-output -n "${CLI_VENV}" python --version | awk '{print $2}' | cut -d. -f1,2)
 if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
     echo "Error: mlc-cli-venv has Python $PY_VERSION_INSTALLED but wheel requires Python ${PYTHON_VERSION}"
     echo "Recreating environment with correct Python version..."
-    conda deactivate
     conda env remove -n "${CLI_VENV}" -y
     conda create -y -n "${CLI_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
@@ -46,7 +44,6 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
         pytest \
         psutil \
         pip
-    conda activate "${CLI_VENV}"
 fi
 
 # Install TVM wheel first (MLC depends on TVM at runtime)
@@ -56,7 +53,7 @@ if [ ${#TVM_WHEELS[@]} -gt 1 ]; then
 fi
 if [ ${#TVM_WHEELS[@]} -gt 0 ]; then
     echo "Installing TVM wheel (dependency for MLC)..."
-    python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
+    conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
 else
     echo "Warning: No TVM wheel found in ${WHEELS_DIR} matching tvm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl. MLC may fail if TVM is not already installed."
 fi
@@ -70,9 +67,9 @@ if [ "${INSTALL_MODE}" = "wheel" ]; then
         echo "Error: No MLC wheel found. Please build wheels first."
         exit 1
     fi
-    python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
+    conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 else
     cd mlc-llm/python
-    python -m pip install -e .
+    conda run --no-capture-output -n "${CLI_VENV}" python -m pip install -e .
     cd ../..
 fi
