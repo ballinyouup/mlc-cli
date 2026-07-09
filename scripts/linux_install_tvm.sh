@@ -46,12 +46,44 @@ if [ "$PY_VERSION_INSTALLED" != "${PYTHON_VERSION}" ]; then
     conda activate "${CLI_VENV}"
 fi
 
-# Install pre-built TVM wheel if one was built (relax/custom TVM source modes).
-# In bundled mode linux_build_mlc.sh does not produce a standalone TVM wheel;
-# TVM ships inside the mlc_llm wheel instead, so this step is a no-op there.
-TVM_WHEELS=("${WHEELS_DIR}"/tvm-*.whl)
-if [[ -f "${TVM_WHEELS[0]}" ]]; then
-    python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
-else
-    echo "No standalone TVM wheel found in ${WHEELS_DIR} (bundled mode — skipping TVM wheel install)"
+# Install the pre-built TVM wheel, then restore the bundled TVM FFI wheel.
+# TVM's metadata only says "apache-tvm-ffi" without pinning the exact bundled source.
+# Reinstalling the bundled FFI wheel after TVM prevents pip from leaving an incompatible PyPI FFI package.
+mapfile -t TVM_FFI_WHEELS < <(
+    find "${WHEELS_DIR}" -maxdepth 1 -type f \
+        \( -name "apache_tvm_ffi-*.whl" \
+           -o -name "apache-tvm-ffi-*.whl" \) \
+        | sort
+)
+
+if [[ ${#TVM_FFI_WHEELS[@]} -eq 0 ]]; then
+    echo "No bundled apache-tvm-ffi wheel found in ${WHEELS_DIR}"
+    exit 1
 fi
+
+if [[ ${#TVM_FFI_WHEELS[@]} -gt 1 ]]; then
+    printf '%s\n' "${TVM_FFI_WHEELS[@]}"
+    echo "Multiple apache-tvm-ffi wheels found. Remove stale wheels and retry."
+    exit 1
+fi
+
+mapfile -t TVM_WHEELS < <(
+    find "${WHEELS_DIR}" -maxdepth 1 -type f \
+        \( -name "tvm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl" \
+           -o -name "tvm-*-py3-none-*.whl" \) \
+        | sort
+)
+
+if [[ ${#TVM_WHEELS[@]} -eq 0 ]]; then
+    echo "No ABI-matching TVM wheel found in ${WHEELS_DIR}"
+    exit 1
+fi
+
+if [[ ${#TVM_WHEELS[@]} -gt 1 ]]; then
+    printf '%s\n' "${TVM_WHEELS[@]}"
+    echo "Multiple ABI-matching TVM wheels found. Remove stale wheels and retry."
+    exit 1
+fi
+
+python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
+python -m pip install --force-reinstall --no-deps "${TVM_FFI_WHEELS[0]}"

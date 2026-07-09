@@ -47,27 +47,23 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 log_info "Installing MLC-LLM into CLI environment..."
 
 
-# Install TVM first if in source mode and a standalone TVM wheel exists.
-# In bundled mode linux_build_mlc.sh does not produce a tvm-*.whl; TVM is
-# embedded inside the mlc_llm wheel, so this step is skipped there.
+# Select bundled TVM FFI wheel.
+# MLC dependencies may pull/replace apache-tvm-ffi from PyPI, so reinstall the bundled FFI after MLC.
 if [[ "${INSTALL_MODE}" == "source" ]]; then
-    if [[ "${TVM_SOURCE}" == "bundled" ]]; then
-        log_info "Bundled TVM mode — skipping standalone TVM wheel install"
-    else
-        TVM_WHEELS=($(ls "${WHEELS_DIR}"/tvm-*-${PYTHON_CP_TAG}-${PYTHON_CP_TAG}-*.whl 2>/dev/null || true))
+    mapfile -t TVM_FFI_WHEELS < <(
+        find "${WHEELS_DIR}" -maxdepth 1 -type f \
+            \( -name "apache_tvm_ffi-*.whl" \
+               -o -name "apache-tvm-ffi-*.whl" \) \
+            | sort
+    )
 
-        if [[ ${#TVM_WHEELS[@]} -eq 0 ]]; then
-            log_error "No ABI-matching standalone TVM wheel found in ${WHEELS_DIR} for TVM_SOURCE=${TVM_SOURCE}. Run build first or use TVM_SOURCE=bundled."
-        fi
+    if [[ ${#TVM_FFI_WHEELS[@]} -eq 0 ]]; then
+        log_error "No bundled apache-tvm-ffi wheel found in ${WHEELS_DIR}. Run build first."
+    fi
 
-        if [[ ${#TVM_WHEELS[@]} -gt 1 ]]; then
-            printf '%s\n' "${TVM_WHEELS[@]}"
-            log_error "Multiple ABI-matching TVM wheels found for TVM_SOURCE=${TVM_SOURCE}. Remove stale wheels and retry."
-        fi
-
-        log_info "Installing standalone TVM wheel for TVM_SOURCE=${TVM_SOURCE}..."
-        conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${TVM_WHEELS[0]}"
-        log_success "TVM wheel installed"
+    if [[ ${#TVM_FFI_WHEELS[@]} -gt 1 ]]; then
+        printf '%s\n' "${TVM_FFI_WHEELS[@]}"
+        log_error "Multiple apache-tvm-ffi wheels found. Remove stale wheels and retry."
     fi
 fi
 
@@ -81,6 +77,12 @@ if [[ -z "${MLC_WHEEL_PATH}" ]]; then
 fi
 conda run --no-capture-output -n "${CLI_VENV}" python -m pip install --force-reinstall "${MLC_WHEEL_PATH}"
 log_success "MLC wheel installed"
+
+if [[ "${INSTALL_MODE}" == "source" ]]; then
+    conda run --no-capture-output -n "${CLI_VENV}" \
+        python -m pip install --force-reinstall --no-deps "${TVM_FFI_WHEELS[0]}"
+    log_success "Bundled apache-tvm-ffi wheel restored"
+fi
 
 
 log_success "Installation completed successfully!"

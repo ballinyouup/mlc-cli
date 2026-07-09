@@ -19,6 +19,7 @@ CUDA_ARCH="${5:-${CUDA_ARCH_DEFAULT}}"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WHEELS_DIR="${REPO_ROOT}/wheels"
 TVM_DIR="${REPO_ROOT}/tvm"
+MLC_LLM_DIR="${REPO_ROOT}/mlc-llm"
 
 RED='\033[1;31m'
 GREEN='\033[0;32m'
@@ -32,7 +33,10 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 cleanup_on_error() {
     log_error "TVM build failed! Cleaning up..."
     rm -rf "${TVM_DIR}/build" 2>/dev/null || true
-    rm -rf "${TVM_DIR}"
+
+    if [[ "${TVM_SOURCE:-}" != "bundled" ]]; then
+        rm -rf "${TVM_DIR}" 2>/dev/null || true
+    fi
 }
 
 trap cleanup_on_error ERR
@@ -48,7 +52,31 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # TVM Source Setup
 # =============================================================================
 
-if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
+if [[ "$TVM_SOURCE" == "bundled" ]]; then
+    if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$MLC_LLM_DIR" ]; then
+        log_info "Force re-clone: removing existing MLC-LLM directory..."
+        rm -rf "${MLC_LLM_DIR}"
+    fi
+
+    if [ ! -d "$MLC_LLM_DIR" ]; then
+        log_info "Cloning MLC-LLM from ${MLC_LLM_REPO}..."
+        git clone --recursive "${MLC_LLM_REPO}" "${MLC_LLM_DIR}"
+        if [[ -n "${MLC_LLM_REF}" ]]; then
+            log_info "Checking out MLC_LLM_REF=${MLC_LLM_REF}..."
+            git -C "${MLC_LLM_DIR}" checkout "${MLC_LLM_REF}"
+            git -C "${MLC_LLM_DIR}" submodule update --init --recursive
+        fi
+    fi
+
+    TVM_DIR="${MLC_LLM_DIR}/3rdparty/tvm"
+    if [ ! -d "$TVM_DIR" ]; then
+        log_error "Bundled TVM directory not found at ${TVM_DIR}"
+        exit 1
+    fi
+
+    log_info "Using bundled TVM from ${TVM_DIR}"
+
+elif [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
     if [[ "$FORCE_CLONE" == "y" ]] && [ -d "$TVM_DIR" ]; then
         log_info "Force re-clone: removing existing TVM directory..."
         rm -rf "${TVM_DIR}"
@@ -72,9 +100,8 @@ if [[ "$TVM_SOURCE" == "relax" ]] || [[ "$TVM_SOURCE" == "custom" ]]; then
         log_info "TVM is already at ${TVM_REF}."
     fi
 else
-    log_info "Will use bundled TVM (mlc-llm builds this internally)"
-    log_info "This script is typically called by linux_build_mlc.sh"
-    exit 0
+    log_error "Unsupported TVM_SOURCE=${TVM_SOURCE}"
+    exit 1
 fi
 
 # =============================================================================
@@ -85,6 +112,7 @@ if ! conda env list | grep -q "^${BUILD_VENV} " &> /dev/null; then
     log_info "Creating conda environment: ${BUILD_VENV}"
     conda create -y -n "${BUILD_VENV}" -c "${CONDA_CHANNEL}" \
         "cmake>=${CMAKE_MIN_VERSION}" \
+        ninja \
         rust \
         git \
         "${PYTHON_PACKAGE_SPEC}" \
@@ -107,10 +135,11 @@ cd build
 log_info "Configuring TVM build..."
 
 cmake .. \
+    -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}"
-make -j"$(nproc)"
+cmake --build . --parallel "$(nproc)"
 log_success "TVM build completed!"
 
 # =============================================================================
@@ -126,6 +155,16 @@ if [[ "${BUILD_WHEELS}" == "y" ]]; then
     python -m build --wheel --outdir "${WHEELS_DIR}"
 
     log_success "TVM wheel created in ${WHEELS_DIR}"
+
+    TVM_FFI_DIR="${TVM_DIR}/3rdparty/tvm-ffi"
+    if [[ -d "${TVM_FFI_DIR}" ]]; then
+        log_info "Building bundled apache-tvm-ffi wheel..."
+        cd "${TVM_FFI_DIR}"
+        python -m build --wheel --outdir "${WHEELS_DIR}"
+        log_success "apache-tvm-ffi wheel created in ${WHEELS_DIR}"
+    else
+        log_info "No bundled tvm-ffi source found; skipping apache-tvm-ffi wheel build"
+    fi
 else
     log_info "Skipping TVM wheel build"
 fi
