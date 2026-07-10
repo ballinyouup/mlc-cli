@@ -14,6 +14,9 @@ TVM_SOURCE="${2:-bundled}"
 BUILD_WHEELS="${3:-y}"
 FORCE_CLONE="${4:-n}"
 CUDA_ARCH="${5:-${CUDA_ARCH_DEFAULT}}"
+CUDA="${6:-n}"
+CUBLAS="${7:-n}"
+CUTLASS="${8:-n}"
 
 # SCRIPT_DIR already set above when sourcing versions.sh
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -29,6 +32,42 @@ NC='\033[0m'
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+cmake_bool_from_choice() {
+    local name="$1"
+    local value="${2:-n}"
+
+    case "${value,,}" in
+        y|yes|true|1|on)
+            echo "ON"
+            ;;
+        n|no|false|0|off|"")
+            echo "OFF"
+            ;;
+        auto)
+            if command -v nvcc >/dev/null 2>&1; then
+                echo "ON"
+            else
+                echo "OFF"
+            fi
+            ;;
+        *)
+            log_error "Invalid ${name} value '${value}'. Expected y, n, or auto."
+            exit 1
+            ;;
+    esac
+}
+
+TVM_USE_CUDA="$(cmake_bool_from_choice CUDA "${CUDA}")"
+TVM_USE_CUBLAS="$(cmake_bool_from_choice CUBLAS "${CUBLAS}")"
+TVM_USE_CUTLASS="$(cmake_bool_from_choice CUTLASS "${CUTLASS}")"
+
+if [[ "${TVM_USE_CUDA}" == "OFF" ]]; then
+    if [[ "${TVM_USE_CUBLAS}" == "ON" || "${TVM_USE_CUTLASS}" == "ON" ]]; then
+        log_error "cuBLAS/CUTLASS require CUDA. Build with CUDA=y or disable cuBLAS/CUTLASS."
+        exit 1
+    fi
+fi
 
 cleanup_on_error() {
     log_error "TVM build failed! Cleaning up..."
@@ -132,13 +171,53 @@ cd "${TVM_DIR}" || exit 1
 mkdir -p build
 cd build
 
+CMAKE_CUDA_COMPILER_ARG=()
+if [[ "${TVM_USE_CUDA}" == "ON" ]]; then
+    if command -v nvcc >/dev/null 2>&1; then
+        NVCC_PATH="$(command -v nvcc)"
+    elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+        NVCC_PATH="/usr/local/cuda/bin/nvcc"
+    elif [[ -x /usr/bin/nvcc ]]; then
+        NVCC_PATH="/usr/bin/nvcc"
+    else
+        log_error "CUDA was requested but nvcc was not found. Install CUDA or build with CUDA=n."
+        exit 1
+    fi
+
+    NVCC_REAL="$(readlink -f "${NVCC_PATH}" 2>/dev/null || echo "${NVCC_PATH}")"
+    CUDA_BIN_DIR="$(dirname "${NVCC_REAL}")"
+    CUDA_HOME="$(dirname "${CUDA_BIN_DIR}")"
+
+    export PATH="${CUDA_BIN_DIR}:${PATH}"
+    export CUDACXX="${NVCC_REAL}"
+    export CUDA_HOME="${CUDA_HOME}"
+
+    if [[ -d "${CUDA_HOME}/lib64" ]]; then
+        export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+    fi
+
+    CMAKE_CUDA_COMPILER_ARG=(-DCMAKE_CUDA_COMPILER="${NVCC_REAL}")
+
+    log_info "TVM CUDA support: ON"
+    log_info "Using CUDA from: ${CUDA_HOME}"
+    log_info "CUDA compiler: ${NVCC_REAL}"
+else
+    log_info "TVM CUDA support: OFF"
+fi
+
+log_info "TVM cuBLAS support: ${TVM_USE_CUBLAS}"
+log_info "TVM CUTLASS support: ${TVM_USE_CUTLASS}"
 log_info "Configuring TVM build..."
 
 cmake .. \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}"
+    -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
+    -DUSE_CUDA="${TVM_USE_CUDA}" \
+    -DUSE_CUBLAS="${TVM_USE_CUBLAS}" \
+    -DUSE_CUTLASS="${TVM_USE_CUTLASS}" \
+    "${CMAKE_CUDA_COMPILER_ARG[@]}"
 cmake --build . --parallel "$(nproc)"
 log_success "TVM build completed!"
 

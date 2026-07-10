@@ -58,7 +58,7 @@ func (p *Platform) build(pkg string) {
 		if p.OperatingSystem == "mac" {
 			cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv, p.TVMSource, p.BuildWheels, p.ForceClone)
 		} else {
-			cmd = exec.Command("bash", scriptPath, p.CUDAArch, p.TVMSource, p.BuildWheels, p.ForceClone)
+			cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv, p.TVMSource, p.BuildWheels, p.ForceClone, p.CUDAArch, p.CUDA, p.CuBLAS, p.Cutlass)
 		}
 	} else {
 		cmd = exec.Command("bash", scriptPath, p.TVMBuildEnv)
