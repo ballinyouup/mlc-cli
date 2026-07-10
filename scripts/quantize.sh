@@ -67,9 +67,8 @@ log_info "  Output: ${OUTPUT_PATH}"
 mkdir -p "$(dirname "${OUTPUT_PATH}")"
 
 # Export required environment variables for TVM and MLC
-export TVM_HOME="${REPO_ROOT}/tvm"
-export PYTHONPATH="${REPO_ROOT}/tvm/python:${PYTHONPATH:-}"
-export LD_LIBRARY_PATH="${REPO_ROOT}/tvm/build/lib:${REPO_ROOT}/mlc-llm/build/lib:${LD_LIBRARY_PATH:-}"
+source "${SCRIPT_DIR}/tvm_runtime_env.sh"
+setup_tvm_runtime_env "${REPO_ROOT}"
 
 # Convert weights
 if [[ -n "${DEVICE}" ]]; then
